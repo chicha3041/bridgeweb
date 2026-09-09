@@ -48,10 +48,14 @@ button.small { padding: .25rem .7rem; font-size: .85rem; }
 .pv-hand .pv-name { font-weight: 400; color: #666; font-size: .85rem; }
 .pv-suit { font-family: "DejaVu Sans Mono", Consolas, monospace; }
 .suit-s { color: #222; } .suit-h { color: #c00; } .suit-d { color: #d60; } .suit-c { color: #060; }
-.pv-center { min-width: 180px; min-height: 64px; text-align: center; vertical-align: middle; }
+.pv-center { min-width: 190px; min-height: 92px; text-align: center; vertical-align: middle; }
 .pv-empty { color: #999; font-size: .9rem; }
-.pv-trick-card { display: inline-block; margin: 0 .35rem; text-align: center; }
-.pv-trick-card .pv-seat { display: block; font-size: .75rem; color: #777; }
+.pv-trick { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 1.9rem); gap: 1px 4px; justify-content: center; align-items: center; }
+.pv-pos { text-align: center; }
+.pv-pos-n { grid-column: 2; grid-row: 1; }
+.pv-pos-w { grid-column: 1; grid-row: 2; }
+.pv-pos-e { grid-column: 3; grid-row: 2; }
+.pv-pos-s { grid-column: 2; grid-row: 3; }
 .card { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: 1.25rem; font-weight: 700; }
 .card.pv-last { background: #fff3bf; border-radius: 4px; padding: 0 .2rem; box-shadow: 0 0 0 1px #e0b400; }
 .pv-controls { margin-top: .5rem; display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
@@ -60,3 +64,22 @@ button.small { padding: .25rem .7rem; font-size: .85rem; }
 .pv-alert.err { background: #ffe3e3; color: #a00000; border: 1px solid #e5a3a3; }
 .pv-alert.good { background: #e2f4e5; color: #0a6b2d; border: 1px solid #a3d3ab; }
 .play-static summary { cursor: pointer; color: #555; font-size: .9rem; }
+
+/* Mesa de subasta con comparación entre salas */
+.auc-title { margin: .6rem 0 .2rem; }
+table.auction { background: #fff; margin: .3rem 0 .2rem; }
+table.auction th, table.auction td { text-align: center; min-width: 2.9rem; }
+table.auction td { font-weight: 600; font-family: "DejaVu Sans Mono", Consolas, monospace; }
+.call-pass { color: #888; font-weight: 400; }
+.call-x { color: #a00000; }
+.suit-nt { color: #1f3a5f; font-weight: 700; }
+td.diff-call { background: #fdeacc; }
+td.contract-same { background: #dff0e2; box-shadow: inset 0 0 0 2px #0a6b2d; }
+td.contract-diff { background: #ffe3e3; box-shadow: inset 0 0 0 2px #b00020; }
+.auction-legend { display: flex; gap: 1.1rem; flex-wrap: wrap; margin: .2rem 0 .7rem; color: #666; }
+.auction-legend .lg { display: inline-flex; align-items: center; gap: .3rem; }
+.auction-legend .sw { display: inline-block; width: .85rem; height: .85rem; border-radius: 3px; }
+.sw-same { background: #dff0e2; border: 2px solid #0a6b2d; }
+.sw-diff { background: #ffe3e3; border: 2px solid #b00020; }
+.sw-call { background: #fdeacc; border: 1px solid #d8a04a; }
+ul.best { margin: .3rem 0 1rem; }

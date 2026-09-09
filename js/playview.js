@@ -5,7 +5,7 @@ const SEAT_LABEL = { N: "N", E: "E", S: "S", W: "O" };
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-function cardHtml(str, extra = "") {
+export function cardHtml(str, extra = "") {
   const s = str[0], r = str.slice(1);
   return `<span class="card suit-${s.toLowerCase()}${extra}">${esc(r)}${SUIT_SYM[s]}</span>`;
 }
@@ -41,17 +41,24 @@ class PlayView {
   }
   draw() {
     const i = this.i, n = this.play.length;
-    // Baza en curso: la que contiene la última carta jugada
+    // Baza en curso: la que contiene la última carta jugada.
+    // Cada carta sale en la posición de su jugador (N arriba, O a la izquierda,
+    // E a la derecha, S abajo), como en la mesa.
     let trickHtml = '<div class="pv-empty">Pulsa ▶ para empezar el carteo</div>';
     if (i > 0) {
       const start = Math.floor((i - 1) / 4) * 4;
-      const cards = [];
+      const pos = { N: "", E: "", S: "", W: "" };
       for (let k = start; k < i; k++) {
         const seat = this.actors[k] || "?";
         const last = k === i - 1 ? " pv-last" : "";
-        cards.push(`<div class="pv-trick-card"><span class="pv-seat">${SEAT_LABEL[seat] || esc(seat)}</span>${cardHtml(this.play[k], last)}</div>`);
+        if (seat in pos) pos[seat] = `<div class="pv-played">${cardHtml(this.play[k], last)}</div>`;
       }
-      trickHtml = cards.join("");
+      trickHtml = `<div class="pv-trick">` +
+        `<div class="pv-pos pv-pos-n">${pos.N}</div>` +
+        `<div class="pv-pos pv-pos-w">${pos.W}</div>` +
+        `<div class="pv-pos pv-pos-e">${pos.E}</div>` +
+        `<div class="pv-pos pv-pos-s">${pos.S}</div>` +
+      `</div>`;
     }
     this.root.querySelector(".pv-center").innerHTML = trickHtml;
     this.root.querySelector(".pv-cell-n").innerHTML = this.handCell("N");

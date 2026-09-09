@@ -105,9 +105,19 @@ export class BridgeAnalyzer {
       manos[PLAYER_ABBR[p]] = suits;
     }
 
+    const pen = board.contract
+      ? (board.contract.penalty === PENALTY.DOUBLED ? "x" : board.contract.penalty === PENALTY.REDOUBLED ? "xx" : "")
+      : "";
+    const contractKey = isPassout(board.contract)
+      ? "Pass"
+      : `${board.contract.level}${board.contract.denom === 4 ? "NT" : SUIT_LETTERS[board.contract.denom]}${PLAYER_ABBR[board.contract.declarer]}${pen}`;
+
     const roomMeta = {
       "Sala": roomName,
       "Subasta Real": board.auction.map(b => b.str).join(" - "),
+      "Auction": board.auction.map(b => b.str),
+      "DealerAbbr": PLAYER_ABBR[board.dealer],
+      "ContractKey": contractKey,
       "Contrato Final": board.contract ? contractToString(board.contract) : "Paso",
       "Puntos Reales (NS)": actualNs,
       "Par Contrato": parContracts[0] || "Pass",
@@ -115,7 +125,7 @@ export class BridgeAnalyzer {
       "Comentarios": comm,
       "Manos": manos,
       "Vulnerabilidad": vulDisplay(board.vul),
-      "Dador": PLAYER_NAMES[board.dealer],
+      "Dador": { N: "N", E: "E", S: "S", W: "O" }[PLAYER_ABBR[board.dealer]],
       "Play": board.play.map(cardToString),
       "Actors": actors,
       "Critical_Plays": critPlays,

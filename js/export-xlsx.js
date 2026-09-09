@@ -13,6 +13,10 @@ const TITLE_FONT = { bold: true, size: 14, color: { argb: "FF1F3A5F" } };
 const HEADER_FONT = { bold: true, color: { argb: "FFFFFFFF" } };
 const RED = "FFB00020", GREEN = "FF0A6B2D";
 
+// Sustituye letras de palo por símbolos en textos de subasta/contrato ("1S - P" -> "1♠ - P", "4SS+2" -> "4♠S+2")
+const SUIT_SYM_TXT = { S: "♠", H: "♥", D: "♦", C: "♣" };
+const suitify = (s) => String(s ?? "").replace(/([1-7])([SHDC])/g, (m, l, st) => l + SUIT_SYM_TXT[st]);
+
 function titleRow(ws, text) {
   const r = ws.addRow([text]);
   r.getCell(1).font = TITLE_FONT;
@@ -106,9 +110,9 @@ export async function exportToExcel(analyzer, stats) {
       if (!det) continue;
       const m = det.meta;
       teamRow(wsB, `SALA ${room.toUpperCase()}`, 7);
-      dataRow(wsB, ["Subasta", m["Subasta Real"]]);
-      dataRow(wsB, ["Contrato", m["Contrato Final"], "Puntos (NS)", m["Puntos Reales (NS)"]]);
-      dataRow(wsB, ["Par", `${m["Par Contrato"]} (${m["Par Puntos (NS)"]} pts NS)`, "Vulnerabilidad", m.Vulnerabilidad, "Dador", m.Dador]);
+      dataRow(wsB, ["Subasta", suitify(m["Subasta Real"])]);
+      dataRow(wsB, ["Contrato", suitify(m["Contrato Final"]), "Puntos (NS)", m["Puntos Reales (NS)"]]);
+      dataRow(wsB, ["Par", `${suitify(m["Par Contrato"])} (${m["Par Puntos (NS)"]} pts NS)`, "Vulnerabilidad", m.Vulnerabilidad, "Dador", m.Dador]);
       if (m.Comentarios) dataRow(wsB, ["Comentarios", m.Comentarios]);
       wsB.addRow([]);
       headerRow(wsB, ["Jugador", "Equipo", "Pos", "Subasta", "Carteo", "Total", "Detalle carteo / IMPs"]);

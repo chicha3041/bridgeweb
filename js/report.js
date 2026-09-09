@@ -4,11 +4,73 @@ import {
   calcularEstadisticasEquipos, filasJugadoresEquipo,
 } from "./analyzer.js";
 import { renameEquipo } from "./stats.js";
-import { playViewHtml, initPlayViews } from "./playview.js";
+import { playViewHtml, initPlayViews, cardHtml } from "./playview.js";
+import { pyRound2 } from "./bridge-core.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const suitHtml = { S: '<span class="suit s">♠</span>', H: '<span class="suit h">♥</span>', D: '<span class="suit d">♦</span>', C: '<span class="suit c">♣</span>' };
 const SEAT_LABEL = { N: "N", E: "E", S: "S", W: "O" };
+const SUIT_SYM = { S: "♠", H: "♥", D: "♦", C: "♣" };
+
+// Una voz de subasta con símbolo de palo: "1S" -> 1♠, "3NT", "P", "X", "XX"
+function bidHtml(str) {
+  const s = String(str || "");
+  if (s === "P") return `<span class="call-pass">P</span>`;
+  if (s === "X" || s === "XX") return `<span class="call-x">${s}</span>`;
+  const m = s.match(/^([1-7])(NT|[SHDC])$/);
+  if (!m) return esc(s);
+  const denom = m[2] === "NT" ? `<span class="suit-nt">NT</span>` : `<span class="suit-${m[2].toLowerCase()}">${SUIT_SYM[m[2]]}</span>`;
+  return `${m[1]}${denom}`;
+}
+
+// Contrato con símbolo de palo y declarante en español: "4SS+2" -> 4♠S+2, "3NTW+1" -> 3NTO+1
+function contractHtml(str) {
+  const s = String(str || "");
+  const m = s.match(/^([1-7])(NT|[SHDC])([NESW])(x{0,2})(.*)$/);
+  if (!m) return esc(s);
+  const denom = m[2] === "NT" ? `<span class="suit-nt">NT</span>` : `<span class="suit-${m[2].toLowerCase()}">${SUIT_SYM[m[2]]}</span>`;
+  return `${m[1]}${denom}${SEAT_LABEL[m[3]] || m[3]}${m[4]}${m[5]}`;
+}
+
+// Mesa de subasta (columnas O N E S) con comparación entre salas:
+// - voces distintas a la otra sala sombreadas en ámbar
+// - contrato final con borde verde si se juega lo mismo en las dos salas, rojo si no
+const AUC_COLS = ["W", "N", "E", "S"];
+function auctionHtml(meta, otherMeta) {
+  const calls = meta.Auction || [];
+  if (!calls.length) return "";
+  const other = (otherMeta && otherMeta.Auction) || [];
+  const dealerCol = Math.max(0, AUC_COLS.indexOf(meta.DealerAbbr || "N"));
+  let lastBid = -1;
+  calls.forEach((c, idx) => { if (!["P", "X", "XX"].includes(c)) lastBid = idx; });
+  const contractCells = new Set();
+  if (lastBid >= 0) {
+    contractCells.add(lastBid);
+    for (let k = lastBid + 1; k < calls.length && (calls[k] === "X" || calls[k] === "XX"); k++) contractCells.add(k);
+  }
+  const sameContract = !!(otherMeta && meta.ContractKey && otherMeta.ContractKey === meta.ContractKey);
+  const nRows = Math.ceil((dealerCol + calls.length) / 4);
+  let rows = "";
+  for (let r = 0; r < nRows; r++) {
+    rows += "<tr>";
+    for (let c = 0; c < 4; c++) {
+      const idx = r * 4 + c - dealerCol;
+      if (idx < 0 || idx >= calls.length) { rows += "<td></td>"; continue; }
+      const call = calls[idx];
+      const isDiff = otherMeta && (idx < other.length ? other[idx] !== call : call !== "P");
+      const cls = [];
+      if (isDiff) cls.push("diff-call");
+      if (otherMeta && contractCells.has(idx)) cls.push(sameContract ? "contract-same" : "contract-diff");
+      rows += `<td${cls.length ? ` class="${cls.join(" ")}"` : ""}>${bidHtml(call)}</td>`;
+    }
+    rows += "</tr>";
+  }
+  const legend = otherMeta ? `<div class="auction-legend small">` +
+    `<span class="lg"><span class="sw sw-same"></span>mismo contrato en las dos salas</span>` +
+    `<span class="lg"><span class="sw sw-diff"></span>contrato distinto entre salas</span>` +
+    `<span class="lg"><span class="sw sw-call"></span>voz distinta a la otra sala</span></div>` : "";
+  return `<table class="auction"><thead><tr><th>O</th><th>N</th><th>E</th><th>S</th></tr></thead><tbody>${rows}</tbody></table>${legend}`;
+}
 
 function handHtml(manos) {
   const cell = (p) => {
@@ -59,7 +121,7 @@ function playTable(meta) {
       if (idx >= play.length) break;
       const c = crit[idx];
       const mark = c ? ` class="crit" title="${esc(c.player_pos)} ${c.points} pts"` : "";
-      cells.push(`<td${mark}>${esc(actors[idx] || "")}: ${esc(play[idx])}${c ? " ⚠" : ""}</td>`);
+      cells.push(`<td${mark}>${SEAT_LABEL[actors[idx]] || esc(actors[idx] || "")}: ${cardHtml(play[idx])}${c ? " ⚠" : ""}</td>`);
     }
     cols.push(`<tr><td>${t + 1}</td>${cells.join("")}</tr>`);
   }
@@ -113,15 +175,35 @@ export function renderReport(analyzer, stats, container) {
   h += `<p><b>Evento:</b> ${esc(analyzer.matchEvent || "-")} &nbsp; <b>Fecha:</b> ${esc(analyzer.matchDate || "-")} &nbsp; <b>Manos:</b> ${boards.length}</p>`;
 
   // Tabla técnica del partido, agrupada por equipos
-  h += `<h3>Puntos técnicos del partido</h3><table><thead><tr><th>Jugador</th><th>Subasta</th><th>Carteo</th><th>Total Pts</th></tr></thead><tbody>`;
+  h += `<h3>Puntos técnicos del partido</h3><table><thead><tr><th>Jugador</th><th>Subasta</th><th>Carteo</th><th>Total Pts</th><th>IMPs</th></tr></thead><tbody>`;
   for (const g of filasInformePorEquipos(analyzer)) {
-    h += `<tr class="team-sep"><td colspan="4">${esc(g.equipo)}</td></tr>`;
+    h += `<tr class="team-sep"><td colspan="5">${esc(g.equipo)}</td></tr>`;
+    let subImps = 0;
     for (const [name, ts, tc, tot] of g.filas) {
-      h += `<tr><td>${esc(name)}</td><td class="${ts < 0 ? "neg" : ""}">${ts}</td><td class="${tc < 0 ? "neg" : ""}">${tc}</td><td class="${tot < 0 ? "neg" : "pos"}"><b>${tot}</b></td></tr>`;
+      const d = analyzer.playersData[name];
+      const ti = d ? pyRound2(Object.values(d.imps).reduce((a, b) => a + b, 0)) : 0;
+      subImps += ti;
+      h += `<tr><td>${esc(name)}</td><td class="${ts < 0 ? "neg" : ""}">${ts}</td><td class="${tc < 0 ? "neg" : ""}">${tc}</td><td class="${tot < 0 ? "neg" : "pos"}"><b>${tot}</b></td><td class="${ti < 0 ? "neg" : ""}">${ti}</td></tr>`;
     }
-    h += `<tr class="subtotal"><td>Subtotal ${esc(g.equipo)}</td><td>${g.subtotal[0]}</td><td>${g.subtotal[1]}</td><td><b>${g.subtotal[2]}</b></td></tr>`;
+    h += `<tr class="subtotal"><td>Subtotal ${esc(g.equipo)}</td><td>${g.subtotal[0]}</td><td>${g.subtotal[1]}</td><td><b>${g.subtotal[2]}</b></td><td><b>${pyRound2(subImps)}</b></td></tr>`;
   }
   h += `</tbody></table>`;
+
+  // Mejores del partido por equipo (como en la hoja Resumen del Excel)
+  h += `<h3>Mejores del partido</h3><ul class="best">`;
+  for (const tn of ["Equipo A", "Equipo B"]) {
+    let bT = [null, -1e9], bC = [null, -1e9];
+    for (const n of [...analyzer.teamsRoster[tn]]) {
+      const d = analyzer.playersData[n];
+      if (!d) continue;
+      const tot = Object.values(d.bidding).reduce((a, b) => a + b, 0) + Object.values(d.play).reduce((a, b) => a + b, 0);
+      const ti = Object.values(d.imps).reduce((a, b) => a + b, 0);
+      if (tot > bT[1]) bT = [n, tot];
+      if (ti > bC[1]) bC = [n, ti];
+    }
+    h += `<li><b>${tn}:</b> mejor técnico <b>${esc(bT[0] || "-")}</b>${bT[0] ? ` (${bT[1]} pts)` : ""} · mejor competitivo <b>${esc(bC[0] || "-")}</b>${bC[0] ? ` (${pyRound2(bC[1])} IMPs)` : ""}</li>`;
+  }
+  h += `</ul>`;
 
   // Balance
   const ra = analyzer.matchGrossGain["Equipo A"], rb = analyzer.matchGrossGain["Equipo B"];
@@ -139,9 +221,11 @@ export function renderReport(analyzer, stats, container) {
       const det = bd[room];
       if (!det) continue;
       const m = det.meta;
+      const otherDet = bd[room === "Abierta" ? "Cerrada" : "Abierta"];
       h += `<div class="room"><h3>Sala ${room}</h3>`;
-      h += `<p><b>Subasta:</b> ${esc(m["Subasta Real"])}<br><b>Contrato:</b> ${esc(m["Contrato Final"])} &nbsp; <b>Puntos (NS):</b> ${m["Puntos Reales (NS)"]}<br>` +
-        `<b>Par:</b> ${esc(m["Par Contrato"])} (${m["Par Puntos (NS)"]} pts NS) &nbsp; <b>Vul:</b> ${esc(m.Vulnerabilidad)} &nbsp; <b>Dador:</b> ${esc(m.Dador)}${m.Comentarios ? `<br><i>${esc(m.Comentarios)}</i>` : ""}</p>`;
+      h += `<h4 class="auc-title">Subasta</h4>` + auctionHtml(m, otherDet && otherDet.meta);
+      h += `<p><b>Contrato:</b> ${contractHtml(m["Contrato Final"])} &nbsp; <b>Puntos (NS):</b> ${m["Puntos Reales (NS)"]}<br>` +
+        `<b>Par:</b> ${contractHtml(m["Par Contrato"])} (${m["Par Puntos (NS)"]} pts NS) &nbsp; <b>Vul:</b> ${esc(m.Vulnerabilidad)} &nbsp; <b>Dador:</b> ${esc(m.Dador)}${m.Comentarios ? `<br><i>${esc(m.Comentarios)}</i>` : ""}</p>`;
       h += handHtml(m.Manos);
       h += playersTable(det.players, `Jugadores - Sala ${room}`, room);
       h += playViewHtml(num, room, m);

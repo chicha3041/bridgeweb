@@ -7,8 +7,14 @@ o MyHands) y obtienes:
 - Puntos técnicos de subasta y carteo por jugador y mano, ordenados por equipos
 - Comparación con el par doble-dummy de cada mano
 - IMPs del partido y atribución por jugador
-- Carteo interactivo: recorre la jugada carta a carta y verás en rojo cada
+- Carteo interactivo: recorre la jugada carta a carta, con cada carta en la
+  posición de su jugador (N, S, E, O) como en la mesa, y verás en rojo cada
   error técnico en el momento en que se comete
+- Mesa de subasta visual (columnas O, N, E, S) con los palos como símbolos;
+  las voces que difieren de la otra sala van sombreadas y el contrato final se
+  marca en verde si se juega lo mismo en las dos salas o en rojo si no
+- Resumen del partido en la web tan completo como el del Excel: IMPs por
+  jugador en la tabla técnica y mejores técnico y competitivo de cada equipo
 - Informe Excel descargable con formato (resumen, una hoja por mano,
   estadísticas)
 - Estadísticas acumuladas **por equipo** guardadas en tu navegador: cada
