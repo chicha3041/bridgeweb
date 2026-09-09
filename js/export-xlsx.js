@@ -1,108 +1,160 @@
-// Exportación a Excel con SheetJS (misma estructura que el informe Python)
-import { calcularEstadisticas, filasEstadisticas } from "./analyzer.js";
+// Exportación a Excel con ExcelJS: estructura clara y formato real
+// (cabeceras con color, anchos de columna, negativos en rojo, subtotales)
+import {
+  filasInformePorEquipos, ordenarPorEquipos, ladoDe,
+  calcularEstadisticasEquipos, filasJugadoresEquipo,
+} from "./analyzer.js";
 import { pyRound2 } from "./bridge-core.js";
 
-export function exportToExcel(analyzer, stats) {
-  const wb = XLSX.utils.book_new();
-  const boards = [...analyzer.activeBoards].sort((a, b) => a - b);
+const HEADER_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3A5F" } };
+const TEAM_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E2F3" } };
+const SUBTOTAL_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
+const TITLE_FONT = { bold: true, size: 14, color: { argb: "FF1F3A5F" } };
+const HEADER_FONT = { bold: true, color: { argb: "FFFFFFFF" } };
+const RED = "FFB00020", GREEN = "FF0A6B2D";
 
+function titleRow(ws, text) {
+  const r = ws.addRow([text]);
+  r.getCell(1).font = TITLE_FONT;
+  r.height = 20;
+  return r;
+}
+function headerRow(ws, values) {
+  const r = ws.addRow(values);
+  r.eachCell(c => { c.fill = HEADER_FILL; c.font = HEADER_FONT; });
+  return r;
+}
+function teamRow(ws, text, span) {
+  const r = ws.addRow([text]);
+  for (let i = 1; i <= span; i++) { r.getCell(i).fill = TEAM_FILL; r.getCell(i).font = { bold: true }; }
+  return r;
+}
+function dataRow(ws, values, { bold = false, fill = null, numFmt = {} } = {}) {
+  const r = ws.addRow(values);
+  r.eachCell((c, i) => {
+    if (bold) c.font = { ...(c.font || {}), bold: true };
+    if (fill) c.fill = fill;
+    if (typeof c.value === "number") {
+      if (numFmt[i]) c.numFmt = numFmt[i];
+      if (c.value < 0) c.font = { ...(c.font || {}), color: { argb: RED }, bold };
+    }
+  });
+  return r;
+}
+
+export async function exportToExcel(analyzer, stats) {
+  const wb = new ExcelJS.Workbook();
+  const boards = [...analyzer.activeBoards].sort((a, b) => a - b);
+  const numFmtImps = { 5: "0.00" };
+
+  // ---- Resumen (primera hoja: lo importante de un vistazo) ----
+  const ws = wb.addWorksheet("Resumen");
+  ws.columns = [{ width: 28 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }];
+  titleRow(ws, "INFORME DEL PARTIDO");
+  dataRow(ws, ["Evento", analyzer.matchEvent || "-"]);
+  dataRow(ws, ["Fecha", analyzer.matchDate || "-"]);
+  dataRow(ws, ["Manos", boards.length]);
+  ws.addRow([]);
+  const ra = analyzer.matchGrossGain["Equipo A"], rb = analyzer.matchGrossGain["Equipo B"];
+  teamRow(ws, "BALANCE DEL PARTIDO", 5);
+  dataRow(ws, ["Equipo A (bruto)", ra, "Equipo B (bruto)", rb], { bold: true });
+  const neto = pyRound2(ra - rb);
+  const wr = dataRow(ws, [ra > rb ? "EQUIPO A GANA" : rb > ra ? "EQUIPO B GANA" : "EMPATE", Math.abs(neto)]);
+  wr.getCell(1).font = { bold: true, color: { argb: neto < 0 ? RED : GREEN } };
+  ws.addRow([]);
+  headerRow(ws, ["Jugador", "Subasta", "Carteo", "Total Pts", "IMPs"]);
+  for (const g of filasInformePorEquipos(analyzer)) {
+    teamRow(ws, g.equipo.toUpperCase(), 5);
+    const conImps = g.filas.map(([name, ts, tc, tot]) => {
+      const d = analyzer.playersData[name];
+      const ti = d ? pyRound2(Object.values(d.imps).reduce((a, b) => a + b, 0)) : 0;
+      return [name, ts, tc, tot, ti];
+    });
+    for (const row of conImps) dataRow(ws, row, { numFmt: numFmtImps });
+    const timp = pyRound2(conImps.reduce((a, r) => a + r[4], 0));
+    dataRow(ws, [`Subtotal ${g.equipo}`, g.subtotal[0], g.subtotal[1], g.subtotal[2], timp],
+      { bold: true, fill: SUBTOTAL_FILL, numFmt: numFmtImps });
+  }
+  ws.addRow([]);
+  for (const tn of ["Equipo A", "Equipo B"]) {
+    let bT = [null, -1e9], bC = [null, -1e9];
+    for (const n of [...analyzer.teamsRoster[tn]]) {
+      const d = analyzer.playersData[n];
+      if (!d) continue;
+      const tot = Object.values(d.bidding).reduce((a, b) => a + b, 0) + Object.values(d.play).reduce((a, b) => a + b, 0);
+      const ti = Object.values(d.imps).reduce((a, b) => a + b, 0);
+      if (tot > bT[1]) bT = [n, tot];
+      if (ti > bC[1]) bC = [n, ti];
+    }
+    dataRow(ws, [`Mejor técnico ${tn}: ${bT[0] || "-"}`, bT[1] === -1e9 ? "" : bT[1]]);
+    const r2 = dataRow(ws, [`Mejor competitivo ${tn}: ${bC[0] || "-"}`, "", "", "", bC[1] === -1e9 ? "" : pyRound2(bC[1])], { numFmt: numFmtImps });
+  }
+
+  // ---- Una hoja por mano ----
   for (const num of boards) {
     const bd = analyzer.boardsDetail[num];
-    const rows = [];
-    const rooms = Object.keys(bd).filter(k => k !== "imps_summary");
-    for (const room of rooms) {
+    const wsB = wb.addWorksheet(`Mano ${num}`.slice(0, 31));
+    wsB.columns = [{ width: 26 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 12 }, { width: 44 }];
+    titleRow(wsB, `MANO ${num}`);
+    const s = bd.imps_summary || {};
+    if (s.board_imps !== undefined) {
+      dataRow(wsB, [`Resultado: diff ${s.diff_pts} pts NS → ${s.board_imps} IMPs para Equipo ${s.board_imps >= 0 ? "A" : "B"}`], { bold: true });
+    }
+    wsB.addRow([]);
+    for (const room of ["Abierta", "Cerrada"]) {
       const det = bd[room];
-      rows.push([`SALA: ${room.toUpperCase()}`]);
-      const meta = { ...det.meta }; delete meta.Manos; delete meta.Play; delete meta.Actors; delete meta.Critical_Plays;
-      rows.push(Object.keys(meta));
-      rows.push(Object.values(meta).map(v => typeof v === "object" ? JSON.stringify(v) : v));
-      rows.push([]);
-      for (const [sn, sr] of [["Pareja NS", ["NORTH", "SOUTH"]], ["Pareja EW", ["EAST", "WEST"]]]) {
-        const sp = det.players.filter(p => sr.includes(p.Pos));
-        if (!sp.length) continue;
-        rows.push([`Pareja: ${sn}`]);
-        rows.push(["Jugador", "Pos", "Subasta", "Carteo", "Total", "Detalle_Carteo", "Subasta_Calculo", "IMPs_Atribuidos", "Sala", "Vulnerabilidad"]);
-        for (const p of sp) rows.push([p.Jugador, p.Pos, p.Subasta, p.Carteo, p.Total, p.Detalle_Carteo, p.Subasta_Calculo, p.IMPs_Atribuidos, p.Sala, p.Vulnerabilidad]);
-        const sb = sp.reduce((a, p) => a + p.Subasta, 0), sv = sp.reduce((a, p) => a + p.Carteo, 0);
-        rows.push([`SUBTOTAL ${sn}`, "", sb, sv, sb + sv]);
-        rows.push([]);
+      if (!det) continue;
+      const m = det.meta;
+      teamRow(wsB, `SALA ${room.toUpperCase()}`, 7);
+      dataRow(wsB, ["Subasta", m["Subasta Real"]]);
+      dataRow(wsB, ["Contrato", m["Contrato Final"], "Puntos (NS)", m["Puntos Reales (NS)"]]);
+      dataRow(wsB, ["Par", `${m["Par Contrato"]} (${m["Par Puntos (NS)"]} pts NS)`, "Vulnerabilidad", m.Vulnerabilidad, "Dador", m.Dador]);
+      if (m.Comentarios) dataRow(wsB, ["Comentarios", m.Comentarios]);
+      wsB.addRow([]);
+      headerRow(wsB, ["Jugador", "Equipo", "Pos", "Subasta", "Carteo", "Total", "Detalle carteo / IMPs"]);
+      let lastTeam = null;
+      for (const p of ordenarPorEquipos(det.players, room)) {
+        const team = ladoDe(room, p.Pos) === "A" ? "Equipo A" : "Equipo B";
+        if (team !== lastTeam) { teamRow(wsB, team, 7); lastTeam = team; }
+        dataRow(wsB, [p.Jugador, team.slice(-1), p.Pos, p.Subasta, p.Carteo, p.Total,
+          `${p.Detalle_Carteo || ""}${p.Detalle_Carteo ? " · " : ""}IMPs: ${p.IMPs_Atribuidos}`]);
       }
+      wsB.addRow([]);
     }
-    const summary = bd.imps_summary || {};
-    if (summary.board_imps !== undefined) {
-      rows.push(["ATRIBUCIÓN DE IMPS POR EQUIPO"]);
-      rows.push(["Diff Abierta NS - Cerrada NS", "TOTAL IMPs TABLERO"]);
-      rows.push([summary.diff_pts, summary.board_imps]);
-      rows.push([]);
-      for (const tn of ["Equipo A", "Equipo B"]) {
-        const teamList = [];
-        for (const rn of rooms) {
-          for (const p of bd[rn].players) {
-            const isA = (rn.toLowerCase() === "abierta" && ["NORTH", "SOUTH"].includes(p.Pos)) ||
-                        (rn.toLowerCase() === "cerrada" && ["EAST", "WEST"].includes(p.Pos));
-            if ((tn === "Equipo A" && isA) || (tn === "Equipo B" && !isA)) teamList.push(p);
-          }
-        }
-        if (!teamList.length) continue;
-        const timps = tn === "Equipo A" ? summary.team_a_imps : summary.team_b_imps;
-        rows.push([`EQUIPO: ${tn}`, `Total IMPs Equipo: ${timps}`]);
-        rows.push(["Jugador", "Pos", "Subasta", "Carteo", "Total", "IMPs_Atribuidos"]);
-        for (const p of teamList) rows.push([p.Jugador, p.Pos, p.Subasta, p.Carteo, p.Total, p.IMPs_Atribuidos]);
-        rows.push([]);
+    if (s.board_imps !== undefined) {
+      teamRow(wsB, "ATRIBUCIÓN DE IMPs", 7);
+      dataRow(wsB, ["Equipo A", s.team_a_imps, "Equipo B", s.team_b_imps], { bold: true });
+    }
+  }
+
+  // ---- Estadísticas por equipo ----
+  const { teams, legacyCount } = calcularEstadisticasEquipos(stats);
+  const ids = Object.keys(teams);
+  if (ids.length) {
+    const wsE = wb.addWorksheet("Estadísticas");
+    wsE.columns = [{ width: 26 }, { width: 10 }, { width: 8 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 11 }, { width: 12 }];
+    titleRow(wsE, "ESTADÍSTICAS ACUMULADAS POR EQUIPO");
+    wsE.addRow([]);
+    ids.sort((a, b) => teams[b].imps - teams[a].imps);
+    for (const id of ids) {
+      const t = teams[id];
+      teamRow(wsE, `${t.nombre} — ${t.partidos} partido(s), ${t.manos} manos, ${pyRound2(t.imps)} IMPs (butler ${t.manos ? pyRound2(t.imps / t.manos) : 0})`, 9);
+      headerRow(wsE, ["Jugador", "Partidos", "Manos", "IMPs", "Butler", "Subasta", "Carteo", "Err.Carteo", "Tendencia"]);
+      for (const f of filasJugadoresEquipo(t)) {
+        dataRow(wsE, [f.name, f.partidos, f.manos, f.imps, f.butler, f.subasta, f.carteo, f.errores, f.tendencia],
+          { numFmt: { 4: "0.00", 5: "0.00" } });
       }
+      wsE.addRow([]);
     }
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws["!cols"] = [{ wch: 30 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 40 }, { wch: 30 }, { wch: 14 }, { wch: 10 }, { wch: 14 }];
-    XLSX.utils.book_append_sheet(wb, ws, `Mano ${num}`.slice(0, 31));
+    if (legacyCount) dataRow(wsE, [`Nota: ${legacyCount} partido(s) antiguo(s) sin datos de equipo no incluidos.`]);
   }
 
-  // Resumen Final
-  const srows = [["Jugador", "Subasta", "Carteo", "Total Pts", "Total IMPs"]];
-  const bTech = { "Equipo A": [null, -1e9], "Equipo B": [null, -1e9] };
-  const bComp = { "Equipo A": [null, -1e9], "Equipo B": [null, -1e9] };
-  for (const tn of ["Equipo A", "Equipo B"]) {
-    const pdata = [];
-    for (const n of [...analyzer.teamsRoster[tn]].sort()) {
-      const d = analyzer.playersData[n];
-      const ts = Object.values(d.bidding).reduce((a, b) => a + b, 0);
-      const tc = Object.values(d.play).reduce((a, b) => a + b, 0);
-      const ti = Object.values(d.imps).reduce((a, b) => a + b, 0);
-      pdata.push([n, ts, tc, ts + tc, pyRound2(ti)]);
-      if (ts + tc > bTech[tn][1]) bTech[tn] = [n, ts + tc];
-      if (ti > bComp[tn][1]) bComp[tn] = [n, ti];
-    }
-    pdata.sort((a, b) => b[4] - a[4]);
-    srows.push([tn.toUpperCase(), "", "", "", ""]);
-    srows.push(...pdata);
-    const tts = pdata.reduce((a, p) => a + p[1], 0), ttc = pdata.reduce((a, p) => a + p[2], 0), tti = pdata.reduce((a, p) => a + p[4], 0);
-    srows.push([`SUBTOTAL NETO ${tn}`, tts, ttc, tts + ttc, pyRound2(tti)]);
-    srows.push(["", "", "", "", ""]);
-  }
-  const ra = analyzer.matchGrossGain["Equipo A"], rb = analyzer.matchGrossGain["Equipo B"];
-  srows.push(["BALANCE DEL PARTIDO", `Equipo A (Bruto): ${ra}`, `Equipo B (Bruto): ${rb}`, "Resultado Neto", pyRound2(ra - rb)]);
-  srows.push([`${ra > rb ? "EQUIPO A" : "EQUIPO B"} GANA POR ${Math.abs(pyRound2(ra - rb))} IMPs`, "", "", "", ""]);
-  srows.push(["", "", "", "", ""]);
-  for (const tn of ["Equipo A", "Equipo B"]) {
-    srows.push([`Mejor Jugador Competitivo ${tn}: ${bComp[tn][0]}`, "", "", "", pyRound2(bComp[tn][1])]);
-    srows.push([`Mejor Jugador Técnico ${tn}: ${bTech[tn][0]}`, "", "", pyRound2(bTech[tn][1]), ""]);
-  }
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(srows), "Resumen Final");
-
-  // Estadísticas
-  const agg = calcularEstadisticas(stats);
-  if (Object.keys(agg).length) {
-    const erows = [["Jugador", "Partidos", "Manos", "IMPs", "Butler", "Subasta", "Carteo", "Err.Carteo", "Tendencia"]];
-    erows.push(...filasEstadisticas(agg));
-    erows.push([]);
-    erows.push(["DETALLE POR PARTIDO"]);
-    erows.push(["Jugador", "Fecha", "Partido", "Manos", "IMPs", "Subasta", "Carteo"]);
-    for (const name of Object.keys(agg).sort()) {
-      for (const h of agg[name].historial) erows.push([name, h.fecha, h.partido, h.manos, h.imps, h.subasta, h.carteo]);
-    }
-    const ws = XLSX.utils.aoa_to_sheet(erows);
-    ws["!cols"] = [{ wch: 25 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 11 }, { wch: 10 }];
-    XLSX.utils.book_append_sheet(wb, ws, "Estadísticas");
-  }
-
-  XLSX.writeFile(wb, "bridge_match_technical_report.xlsx");
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "bridge_match_technical_report.xlsx";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }

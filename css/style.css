@@ -31,3 +31,32 @@ table.diagram td { border: 0; vertical-align: top; padding: .2rem 1rem; }
 .suit.s { color: #222; } .suit.h { color: #c00; } .suit.d { color: #d60; } .suit.c { color: #060; }
 table.play td.crit { background: #ffe9e9; color: var(--neg); font-weight: 600; }
 footer { padding: 1rem 2rem; color: #777; font-size: .85rem; }
+
+/* Equipos en tablas */
+tr.team-sep td { background: #d9e2f3; font-weight: 700; color: #1f3a5f; }
+tr.subtotal td { background: #f2f2f2; font-weight: 600; }
+button.small { padding: .25rem .7rem; font-size: .85rem; }
+
+/* Estadísticas por equipo */
+.team-block { background: #fff; border-radius: 8px; padding: .6rem 1rem 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.team-header { margin: .3rem 0 .2rem; color: #1f3a5f; }
+.team-summary { margin: .2rem 0 .6rem; color: #444; }
+.team-detail summary { cursor: pointer; color: #555; }
+
+/* Visor interactivo del carteo */
+.playview { background: #fff; border-radius: 8px; padding: .8rem 1rem; margin: .6rem 0 1rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.pv-hand .pv-name { font-weight: 400; color: #666; font-size: .85rem; }
+.pv-suit { font-family: "DejaVu Sans Mono", Consolas, monospace; }
+.suit-s { color: #222; } .suit-h { color: #c00; } .suit-d { color: #d60; } .suit-c { color: #060; }
+.pv-center { min-width: 180px; min-height: 64px; text-align: center; vertical-align: middle; }
+.pv-empty { color: #999; font-size: .9rem; }
+.pv-trick-card { display: inline-block; margin: 0 .35rem; text-align: center; }
+.pv-trick-card .pv-seat { display: block; font-size: .75rem; color: #777; }
+.card { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: 1.25rem; font-weight: 700; }
+.card.pv-last { background: #fff3bf; border-radius: 4px; padding: 0 .2rem; box-shadow: 0 0 0 1px #e0b400; }
+.pv-controls { margin-top: .5rem; display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+.pv-status { margin-left: .6rem; color: #555; font-size: .9rem; }
+.pv-alert { margin-top: .6rem; padding: .45rem .8rem; border-radius: 6px; font-size: 1rem; }
+.pv-alert.err { background: #ffe3e3; color: #a00000; border: 1px solid #e5a3a3; }
+.pv-alert.good { background: #e2f4e5; color: #0a6b2d; border: 1px solid #a3d3ab; }
+.play-static summary { cursor: pointer; color: #555; font-size: .9rem; }

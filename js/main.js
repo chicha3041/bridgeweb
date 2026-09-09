@@ -69,8 +69,16 @@ async function analyze() {
 }
 
 $("analyze-btn").addEventListener("click", analyze);
-$("export-btn").addEventListener("click", () => {
-  if (lastAnalyzer && lastStats) exportToExcel(lastAnalyzer, lastStats);
+$("export-btn").addEventListener("click", async () => {
+  if (!lastAnalyzer || !lastStats) return;
+  setStatus("Generando Excel...");
+  try {
+    await exportToExcel(lastAnalyzer, lastStats);
+    setStatus("Excel descargado.");
+  } catch (err) {
+    console.error(err);
+    setStatus("Error al generar el Excel: " + (err && err.message || err));
+  }
 });
 $("clear-stats-btn").addEventListener("click", () => {
   if (confirm("¿Borrar todo el histórico de partidos guardado en este navegador?")) {

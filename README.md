@@ -4,13 +4,16 @@ Analizador de partidos de bridge por equipos, directamente en el navegador.
 Subes los archivos PBN de la sala abierta y la sala cerrada (exportados de BBO
 o MyHands) y obtienes:
 
-- Puntos técnicos de subasta y carteo por jugador y mano
+- Puntos técnicos de subasta y carteo por jugador y mano, ordenados por equipos
 - Comparación con el par doble-dummy de cada mano
 - IMPs del partido y atribución por jugador
-- Jugadas críticas del carteo, baza a baza
-- Informe Excel descargable
-- Estadísticas acumuladas (butler individual, tendencias, desglose por partido)
-  guardadas en tu navegador
+- Carteo interactivo: recorre la jugada carta a carta y verás en rojo cada
+  error técnico en el momento en que se comete
+- Informe Excel descargable con formato (resumen, una hoja por mano,
+  estadísticas)
+- Estadísticas acumuladas **por equipo** guardadas en tu navegador: cada
+  equipo agrupa a todos sus jugadores (aunque no jueguen todos los partidos)
+  con butler, tendencias y desglose por partido
 
 Todo el cálculo ocurre en tu dispositivo (motor DDS de Bo Haglund compilado a
 WebAssembly). Ningún archivo se sube a ningún servidor.
@@ -56,10 +59,17 @@ Ya está. Esa dirección es la que puedes compartir con tus amigos.
 5. Las estadísticas acumuladas se guardan solas en el navegador; con
    **Borrar histórico** empiezas de cero.
 
-Notas:
+## Equipos y estadísticas
 
 - El Equipo A es NS en sala abierta y EO en sala cerrada (igual que en la
   versión de escritorio).
+- Las estadísticas se agrupan por **equipo**: la primera vez que analizas un
+  partido se crean dos equipos ("Equipo 1" y "Equipo 2"). Usa el botón ✏️
+  junto al nombre para ponerles el nombre real (queda guardado).
+- En partidos siguientes, cada alineación se asigna automáticamente al equipo
+  con más jugadores en común, así los suplentes se suman a su equipo aunque no
+  jueguen todos los partidos. Si un partido lo juegan 8 jugadores distintos,
+  se crean dos equipos nuevos.
 - Si analizas el mismo partido dos veces no se duplica en las estadísticas.
 - Los nombres de los jugadores se leen de las etiquetas `North`, `South`,
   `East`, `West` del PBN; conviene que sean consistentes entre partidos para

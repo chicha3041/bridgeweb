@@ -330,3 +330,96 @@ export function filasEstadisticas(agg) {
   }
   return filas;
 }
+
+// Equipo ("A"/"B") de un jugador según sala y posición
+export function ladoDe(roomName, pos) {
+  const esNS = pos === "NORTH" || pos === "SOUTH";
+  return (roomName.toLowerCase() === "abierta") === esNS ? "A" : "B";
+}
+
+// Ordena jugadores de una sala: primero un equipo, luego el otro;
+// dentro de cada equipo, por puntuación total (mejor primero)
+export function ordenarPorEquipos(players, roomName) {
+  const conLado = players.map(p => ({ p, lado: ladoDe(roomName, p.Pos) }));
+  conLado.sort((x, y) => (x.lado < y.lado ? -1 : x.lado > y.lado ? 1 : y.p.Total - x.p.Total));
+  return conLado.map(o => o.p);
+}
+
+// Filas del informe técnico agrupadas por equipo (Equipo A, luego B;
+// dentro de cada equipo por total descendente, con subtotal)
+export function filasInformePorEquipos(analyzer) {
+  const grupos = [];
+  for (const tn of ["Equipo A", "Equipo B"]) {
+    const filas = [];
+    for (const name of [...analyzer.teamsRoster[tn]].filter(Boolean)) {
+      const d = analyzer.playersData[name];
+      if (!d) continue;
+      const ts = Object.values(d.bidding).reduce((a, b) => a + b, 0);
+      const tc = Object.values(d.play).reduce((a, b) => a + b, 0);
+      filas.push([name, ts, tc, ts + tc]);
+    }
+    filas.sort((a, b) => b[3] - a[3]);
+    const sts = filas.reduce((a, r) => a + r[1], 0);
+    const stc = filas.reduce((a, r) => a + r[2], 0);
+    grupos.push({ equipo: tn, filas, subtotal: [sts, stc, sts + stc] });
+  }
+  return grupos;
+}
+
+// Estadísticas acumuladas por equipo: agrega los partidos por equipo registrado
+// y las estadísticas de cada jugador solo dentro de su equipo.
+// Devuelve { teams: {id: {...}}, legacyCount: n }
+export function calcularEstadisticasEquipos(stats) {
+  const equiposDef = stats.equipos || {};
+  const teams = {};
+  let legacyCount = 0;
+  const partidos = Object.values(stats.partidos || {}).sort((a, b) =>
+    String(a.procesado || "").localeCompare(String(b.procesado || "")));
+  for (const partido of partidos) {
+    if (!partido.equipos) { legacyCount++; continue; }
+    for (const lado of ["A", "B"]) {
+      const side = partido.equipos[lado];
+      if (!side) continue;
+      const t = teams[side.id] || (teams[side.id] = {
+        id: side.id,
+        nombre: (equiposDef[side.id] && equiposDef[side.id].nombre) || side.id,
+        partidos: 0, manos: 0, imps: 0, subasta: 0, carteo: 0, errores: 0, jugadores: {},
+      });
+      t.partidos += 1;
+      t.manos += partido.manos || 0;
+      t.imps += side.imps || 0;
+      for (const name of side.jugadores || []) {
+        const j = (partido.jugadores || {})[name];
+        if (!j) continue;
+        t.subasta += j.subasta; t.carteo += j.carteo;
+        t.errores += (j.errores_carteo || []).length;
+        const pj = t.jugadores[name] || (t.jugadores[name] = {
+          partidos: 0, manos: 0, imps: 0, subasta: 0, carteo: 0, errores: 0, historial: [],
+        });
+        pj.partidos += 1; pj.manos += j.manos; pj.imps += j.imps;
+        pj.subasta += j.subasta; pj.carteo += j.carteo;
+        pj.errores += (j.errores_carteo || []).length;
+        pj.historial.push({
+          fecha: partido.fecha || "", partido: (partido.archivos || []).join(", "),
+          manos: j.manos, imps: j.imps, subasta: j.subasta, carteo: j.carteo,
+        });
+      }
+    }
+  }
+  return { teams, legacyCount };
+}
+
+// Filas de jugadores de un equipo ordenadas por IMPs (mejor primero)
+export function filasJugadoresEquipo(team) {
+  const filas = [];
+  for (const [name, a] of Object.entries(team.jugadores)) {
+    filas.push({
+      name, partidos: a.partidos, manos: a.manos, imps: pyRound2(a.imps),
+      butler: a.manos ? pyRound2(a.imps / a.manos) : 0,
+      subasta: a.subasta, carteo: a.carteo, errores: a.errores,
+      tendencia: tendencia(a.historial), historial: a.historial,
+    });
+  }
+  filas.sort((a, b) => b.imps - a.imps);
+  return filas;
+}
