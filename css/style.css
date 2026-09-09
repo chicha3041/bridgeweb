@@ -1,0 +1,33 @@
+:root { --neg: #b00020; --pos: #0a6b2d; }
+* { box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; background: #f5f6f8; color: #222; }
+header { background: #1f3a5f; color: #fff; padding: 1rem 2rem; }
+header h1 { margin: 0 0 .3rem; }
+header p { margin: 0; opacity: .9; max-width: 70ch; }
+main { padding: 1.5rem 2rem; max-width: 1100px; margin: 0 auto; }
+.upload { background: #fff; border-radius: 8px; padding: 1rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.file-box { display: inline-block; margin: .5rem 1.5rem .5rem 0; }
+.file-box label { display: block; margin-bottom: .3rem; }
+.actions { margin: .8rem 0; }
+button { background: #1f3a5f; color: #fff; border: 0; border-radius: 6px; padding: .55rem 1.1rem; font-size: 1rem; cursor: pointer; margin-right: .6rem; }
+button:disabled { opacity: .5; cursor: default; }
+button.secondary { background: #8a93a0; }
+progress { width: 100%; height: .6rem; }
+#status { min-height: 1.2em; color: #555; }
+#report { margin-top: 1.5rem; }
+table { border-collapse: collapse; margin: .6rem 0 1.2rem; background: #fff; }
+th, td { border: 1px solid #cfd4da; padding: .3rem .6rem; text-align: left; font-size: .95rem; }
+th { background: #e8ecf1; }
+.neg { color: var(--neg); }
+.pos { color: var(--pos); }
+.small { font-size: .8rem; color: #666; }
+details.board { background: #fff; border-radius: 8px; padding: .6rem 1rem; margin-bottom: .8rem; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+details.board summary { cursor: pointer; padding: .3rem 0; }
+.room { border-top: 1px dashed #bbb; margin-top: .6rem; padding-top: .6rem; }
+table.diagram { background: transparent; margin: .8rem auto; }
+table.diagram td { border: 0; vertical-align: top; padding: .2rem 1rem; }
+.hand { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: .95rem; line-height: 1.35; }
+.center-mark { font-size: 1.6rem; text-align: center; vertical-align: middle; color: #999; }
+.suit.s { color: #222; } .suit.h { color: #c00; } .suit.d { color: #d60; } .suit.c { color: #060; }
+table.play td.crit { background: #ffe9e9; color: var(--neg); font-weight: 600; }
+footer { padding: 1rem 2rem; color: #777; font-size: .85rem; }
