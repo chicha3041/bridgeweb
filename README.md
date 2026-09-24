@@ -80,3 +80,14 @@ Ya está. Esa dirección es la que puedes compartir con tus amigos.
 - Los nombres de los jugadores se leen de las etiquetas `North`, `South`,
   `East`, `West` del PBN; conviene que sean consistentes entre partidos para
   que las estadísticas se acumulen bien.
+
+## Cambios v4 (criterios de atribución)
+
+- Puntos de subasta por pareja, repartidos 50/50 (la defensa solo cobra si intervino).
+- Si en las dos salas la pareja que falla queda por debajo del par, la mano la
+  gana la pareja que menos se aleja del par; los IMPs van a las dos parejas que
+  fallaron y la defensa se queda a 0.
+- Dentro de esa pareja, los IMPs se reparten según los errores de carteo de
+  cada uno, con un tope de 75% / 25%.
+- Los parámetros (BID_SHARE_PER_PLAYER y MAX_PLAY_SHIFT) están explicados al
+  principio de js/analyzer.js.

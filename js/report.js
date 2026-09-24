@@ -97,7 +97,7 @@ function playersTable(players, title, roomName) {
     const cls = p.Total < 0 ? "neg" : "pos";
     h += `<tr><td>${esc(p.Jugador)}</td><td>${esc(team.slice(-1))}</td><td>${esc(p.Pos)}</td><td class="${p.Subasta < 0 ? "neg" : ""}">${p.Subasta}</td>` +
       `<td class="${p.Carteo < 0 ? "neg" : ""}">${p.Carteo}</td><td class="${cls}"><b>${p.Total}</b></td>` +
-      `<td>${p.IMPs_Atribuidos}</td><td class="small">${esc(p.Detalle_Carteo)}</td></tr>`;
+      `<td>${p.IMPs_Atribuidos}${p.Nota_IMPs ? `<br><span class="small">${esc(p.Nota_IMPs)}</span>` : ""}</td><td class="small">${esc(p.Detalle_Carteo)}</td></tr>`;
   }
   return h + "</tbody></table>";
 }
@@ -234,7 +234,8 @@ export function renderReport(analyzer, stats, container) {
     }
     if (s.board_imps !== undefined) {
       h += `<h4>Atribución de IMPs</h4><table><thead><tr><th>Equipo</th><th>IMPs</th></tr></thead><tbody>` +
-        `<tr><td>Equipo A</td><td>${s.team_a_imps}</td></tr><tr><td>Equipo B</td><td>${s.team_b_imps}</td></tr></tbody></table>`;
+        `<tr><td>Equipo A</td><td>${s.team_a_imps}</td></tr><tr><td>Equipo B</td><td>${s.team_b_imps}</td></tr></tbody></table>` +
+        (s.criterio ? `<p class="small"><b>Criterio:</b> ${esc(s.criterio)}</p>` : "");
     }
     h += `</details>`;
   }
