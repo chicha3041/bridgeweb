@@ -235,7 +235,8 @@ export function renderReport(analyzer, stats, container) {
     if (s.board_imps !== undefined) {
       h += `<h4>Atribución de IMPs</h4><table><thead><tr><th>Equipo</th><th>IMPs</th></tr></thead><tbody>` +
         `<tr><td>Equipo A</td><td>${s.team_a_imps}</td></tr><tr><td>Equipo B</td><td>${s.team_b_imps}</td></tr></tbody></table>` +
-        (s.criterio ? `<p class="small"><b>Criterio:</b> ${esc(s.criterio)}</p>` : "");
+        (s.criterio ? `<p class="small"><b>Criterio:</b> ${esc(s.criterio)}</p>` : "") +
+        ((s.errores_decisivos || []).length ? `<p class="small"><b>Errores decisivos:</b><br>${s.errores_decisivos.map(esc).join("<br>")}</p>` : "");
     }
     h += `</details>`;
   }

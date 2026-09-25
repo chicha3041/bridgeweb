@@ -35,8 +35,10 @@ const BID_SHARE_PER_PLAYER = 0.5;
 //    - Los IMPs negativos del equipo perdedor van a su pareja que falló.
 //    - Las otras dos parejas (las que defendían) reciben 0 IMPs.
 //    - Empate exacto en distancia al par -> diff 0 -> 0 IMPs para todos.
-//    En el resto de casos (alguna sala llega al par exacto, o las dos parejas
-//    que fallan son del mismo equipo) se aplica el reparto proporcional antiguo.
+//    (v5) Solo si las dos parejas que fallan tienen el mismo papel; si no, ver
+//    la regla B (punto 4). En el resto de casos (alguna sala llega al par
+//    exacto, o las dos parejas que fallan son del mismo equipo) se aplica el
+//    reparto proporcional antiguo.
 //
 // 3) AJUSTE DENTRO DE LA PAREJA POR ERRORES DE CARTEO (solo en el criterio 2)
 //    Base: mitad y mitad. Cada jugador carga con la mitad del déficit de
@@ -52,6 +54,41 @@ const BID_SHARE_PER_PLAYER = 0.5;
 //    pesando más que un error puntual de carteo. Con 0 no hay ajuste (siempre
 //    50/50); con 0.5 se permite el 100% / 0%.
 const MAX_PLAY_SHIFT = 0.25;
+//    (v5) La base de subasta del ajuste es el VALOR ABSOLUTO de los puntos de
+//    subasta de la pareja (así una pareja ganadora con un error pequeño no se va
+//    directa al tope). Los errores decisivos (ver 5) no entran aquí: se cuentan
+//    solo en la capa de errores decisivos, para no castigarlos dos veces.
+//
+// 4) REGLA B: PAREJAS BAJO EL PAR CON PAPEL DISTINTO (v5)
+//    La regla 2 solo compara parejas con el MISMO papel: las dos declaran o
+//    las dos defienden. Si una falla declarando y la otra defendiendo (mano 2
+//    del Last Minute - Galactus), cada pareja se mide por su resultado real
+//    frente al par:
+//    - Los IMPs positivos del ganador van SOLO a sus parejas por encima del par,
+//      en proporción a lo que ganaron.
+//    - Los IMPs negativos del perdedor van SOLO a sus parejas por debajo del par,
+//      en proporción a lo que perdieron. Las demás, 0.
+//
+// 5) ERRORES DECISIVOS DE CARTEO (v5, se aplica en TODAS las manos)
+//    Un error de carteo es DECISIVO si, en el momento de cometerlo, cambia el
+//    signo de la mano para el equipo del que falla (de ganar a empatar/perder,
+//    o de empatar a perder). Se mide con el resultado doble-dummy de ese
+//    momento contra el resultado REAL de la otra sala. Da igual que luego los
+//    contrarios lo devuelvan con otro error: el error queda registrado.
+//    - Equipo que PIERDE la mano (D): los IMPs perdidos se reparten entre las
+//      causas en proporción a los IMPs que se habrían salvado sin cada una:
+//        * el resto del déficit del equipo frente al par (el reparto base, que
+//          se escala como un bloque), y
+//        * cada error decisivo de uno de sus jugadores (quitando solo ese error).
+//      Los "IMPs salvados" no se suman entre sí: se usan solo como proporción.
+//    - Equipo que GANA la mano (E): si uno de sus jugadores cometió un error
+//      decisivo que luego se compensó, carga PENAL_ERROR_DEVUELTO de los IMPs
+//      del equipo. Esa parte pasa a los compañeros de equipo que tenían IMPs
+//      positivos en el reparto base (en proporción a ellos).
+//    Los totales de cada equipo siguen siendo exactamente los del marcador.
+//    Los puntos técnicos no cambian: ya castigan el error en puntos; esta capa
+//    solo decide QUIÉN carga los IMPs dentro del equipo.
+const PENAL_ERROR_DEVUELTO = 0.25;
 
 function handsToPBN(hands) {
   const parts = [];
@@ -269,7 +306,8 @@ export class BridgeAnalyzer {
           playRes[resp] += val;
           if (val < 0) playErrCost[resp] += -val;
           playErrArr[resp].push(`Baza ${trick}(${val})`);
-          criticalPlays.push({ idx: cP - 1, player_pos: PLAYER_NAMES[resp][0] + PLAYER_NAMES[resp].slice(1).toLowerCase(), points: val });
+          criticalPlays.push({ idx: cP - 1, player_pos: PLAYER_NAMES[resp][0] + PLAYER_NAMES[resp].slice(1).toLowerCase(), points: val,
+            role: resp, trick, ns_before: prevNs, ns_after: nowNs });
         }
         prevNs = nowNs;
       }
@@ -286,119 +324,288 @@ export class BridgeAnalyzer {
     const sortedBoards = [...this.activeBoards].sort((a, b) => a - b);
     for (const num of sortedBoards) {
       const dO = this.boardsDetail[num]["Abierta"], dC = this.boardsDetail[num]["Cerrada"];
-      if (dO && dC) {
-        const diff = dO.meta["Puntos Reales (NS)"] - dC.meta["Puntos Reales (NS)"];
-        const boardImps = getImps(diff) * (diff >= 0 ? 1 : -1);
-        if (boardImps > 0) this.matchGrossGain["Equipo A"] += boardImps;
-        else this.matchGrossGain["Equipo B"] += Math.abs(boardImps);
+      if (!(dO && dC)) continue;
+      const diff = dO.meta["Puntos Reales (NS)"] - dC.meta["Puntos Reales (NS)"];
+      const boardImps = getImps(diff) * (diff >= 0 ? 1 : -1);
+      if (boardImps > 0) this.matchGrossGain["Equipo A"] += boardImps;
+      else this.matchGrossGain["Equipo B"] += Math.abs(boardImps);
 
-        this.boardsDetail[num].imps_summary = {
-          diff_pts: diff, board_imps: boardImps, team_a_imps: boardImps, team_b_imps: -boardImps,
-          criterio: "Reparto proporcional a los puntos técnicos",
-        };
+      const summary = this.boardsDetail[num].imps_summary = {
+        diff_pts: diff, board_imps: boardImps, team_a_imps: boardImps, team_b_imps: -boardImps,
+        criterio: "Reparto proporcional a los puntos técnicos", errores_decisivos: [],
+      };
 
-        // Criterio 2: ¿ambas parejas por debajo del par y de equipos distintos?
-        if (this._attributeBothBelowPar(num, dO, dC, boardImps)) continue;
+      const ctx = this._boardContext(num, dO, dC, boardImps);
+      // C) errores decisivos (antes del reparto base, para no contarlos dos veces)
+      ctx.decisive = this._findDecisiveErrors(ctx);
+      summary.errores_decisivos = ctx.decisive.map(e => e.texto);
 
-        const teamImpsMap = { "Equipo A": boardImps, "Equipo B": -boardImps };
-        for (const tn of ["Equipo A", "Equipo B"]) {
-          const teamList = [];
-          for (const rn of ["Abierta", "Cerrada"]) {
-            if (!(rn in this.boardsDetail[num])) continue;
-            for (const p of this.boardsDetail[num][rn].players) {
-              const isA = (rn === "Abierta" && ["NORTH", "SOUTH"].includes(p.Pos)) ||
-                          (rn === "Cerrada" && ["EAST", "WEST"].includes(p.Pos));
-              if ((tn === "Equipo A" && isA) || (tn === "Equipo B" && !isA)) teamList.push(p);
-            }
-          }
-          const timps = teamImpsMap[tn];
-          if (!teamList.length) continue;
+      // Reparto base: regla 2 (A), regla B o proporcional antiguo
+      const base = this._attributeBothBelowPar(ctx) || this._attributeMixedRoles(ctx) || this._attributeProportional(ctx);
+      // D) y E) capa de errores decisivos
+      this._applyDecisiveLayer(ctx, base);
 
-          const origPts = teamList.map(p => p.Total);
-          let calcPts;
-          if (timps > 0 && origPts.every(v => v >= -100 && v <= 100)) {
-            calcPts = [1, 1, 1, 1];
-          } else {
-            calcPts = origPts.slice();
-            if (timps > 0 && origPts.reduce((a, b) => a + b, 0) < 0) {
-              const offset = Math.abs(Math.min(...origPts));
-              calcPts = origPts.map(v => v + offset);
-            }
-          }
-          const sumCalc = calcPts.reduce((a, b) => a + b, 0);
-          let attrs = calcPts.map(v => pyRound2(timps * (sumCalc !== 0 ? v / sumCalc : 0.25)));
-
-          if (timps > 0 && attrs.some(a => a > timps)) {
-            const maxIdx = attrs.indexOf(Math.max(...attrs));
-            attrs = attrs.map((_, i) => i === maxIdx ? Number(timps) : 0.0);
-          } else if (timps < 0 && attrs.some(a => a < timps)) {
-            const minIdx = attrs.indexOf(Math.min(...attrs));
-            attrs = attrs.map((_, i) => i === minIdx ? Number(timps) : 0.0);
-          }
-
-          teamList.forEach((p, i) => {
-            p.IMPs_Atribuidos = attrs[i];
-            this.playersData[p.Jugador].imps[num] = attrs[i];
-          });
-        }
+      for (const e of ctx.entries) {
+        e.p.IMPs_Atribuidos = pyRound2(base.get(e) || 0);
+        e.p.Nota_IMPs = (e.p.Nota_IMPs || "").replace(/^ · /, "");
+        this.playersData[e.p.Jugador].imps[num] = e.p.IMPs_Atribuidos;
       }
     }
   }
 
-  // Criterio 2 + 3 (ver cabecera). Devuelve true si se ha aplicado.
-  _attributeBothBelowPar(num, dO, dC, boardImps) {
-    const par = dO.meta["Par Puntos (NS)"];
-    if (par !== dC.meta["Par Puntos (NS)"]) return false; // no debería ocurrir: misma mano
-    const dNsO = dO.meta["Puntos Reales (NS)"] - par;
-    const dNsC = dC.meta["Puntos Reales (NS)"] - par;
-    if (dNsO === 0 || dNsC === 0) return false; // alguna sala llega al par exacto
-    // Pareja que falla en cada sala: NS si dNs<0, EO si dNs>0.
-    // Equipo A = NS abierta / EO cerrada. Son de equipos distintos si y solo si
-    // los signos coinciden (NS falla en ambas, o EO falla en ambas).
-    if ((dNsO < 0) !== (dNsC < 0)) return false;
-
-    const failPos = (dNs) => dNs < 0 ? ["NORTH", "SOUTH"] : ["EAST", "WEST"];
-    const failO = failPos(dNsO), failC = failPos(dNsC);
-    const teamOfFailO = failO[0] === "NORTH" ? "Equipo A" : "Equipo B";
-    const pairImps = {
-      Abierta: teamOfFailO === "Equipo A" ? boardImps : -boardImps,
-      Cerrada: teamOfFailO === "Equipo A" ? -boardImps : boardImps,
-    };
-    const distO = Math.abs(dNsO), distC = Math.abs(dNsC);
-    this.boardsDetail[num].imps_summary.criterio =
-      `Ambas parejas bajo el par (abierta ${-distO}, cerrada ${-distC}): ` +
-      (distO === distC ? "empate, reparto a cero" : `gana la pareja de la sala ${distO < distC ? "abierta" : "cerrada"}`);
-
-    for (const [rn, det, fail] of [["Abierta", dO, failO], ["Cerrada", dC, failC]]) {
-      const imps = pairImps[rn];
-      const pair = det.players.filter(p => fail.includes(p.Pos));
-      const others = det.players.filter(p => !fail.includes(p.Pos));
-      for (const p of others) {
-        p.IMPs_Atribuidos = 0; p.Nota_IMPs = "Defensa: 0 IMPs (ambas parejas bajo el par)";
-        this.playersData[p.Jugador].imps[num] = 0;
+  // Datos comunes de la mano: jugadores con equipo/sala/pareja y resultados
+  _boardContext(num, dO, dC, boardImps) {
+    const entries = [];
+    for (const [rn, det] of [["Abierta", dO], ["Cerrada", dC]]) {
+      for (const p of det.players) {
+        const ns = ["NORTH", "SOUTH"].includes(p.Pos);
+        const team = (rn === "Abierta") === ns ? "Equipo A" : "Equipo B";
+        p.Nota_IMPs = "";
+        entries.push({ p, room: rn, ns, team, role: ["NORTH", "EAST", "SOUTH", "WEST"].indexOf(p.Pos) });
       }
-      if (!pair.length) continue;
-      if (pair.length === 1) {
-        pair[0].IMPs_Atribuidos = pyRound2(imps);
-        this.playersData[pair[0].Jugador].imps[num] = pair[0].IMPs_Atribuidos;
-        continue;
-      }
-      const bidDeficit = Math.max(0, -(pair[0].Subasta + pair[1].Subasta));
-      const e = pair.map(p => p.Coste_Errores_Carteo || 0);
-      const denom = bidDeficit + e[0] + e[1];
-      let resp = pair.map((_, i) => denom > 0 ? (bidDeficit / 2 + e[i]) / denom : 0.5);
-      resp = resp.map(r => Math.min(0.5 + MAX_PLAY_SHIFT, Math.max(0.5 - MAX_PLAY_SHIFT, r)));
-      const shares = imps < 0 ? resp : resp.map(r => 1 - r);
-      const a0 = pyRound2(imps * shares[0]);
-      const attrs = [a0, pyRound2(imps - a0)]; // suma exacta
-      pair.forEach((p, i) => {
-        p.IMPs_Atribuidos = attrs[i];
-        p.Nota_IMPs = `${Math.round(shares[i] * 100)}% de ${imps} IMPs de la pareja` +
-          (e[i] ? ` (errores carteo ${e[i]} pts)` : "");
-        this.playersData[p.Jugador].imps[num] = attrs[i];
-      });
     }
-    return true;
+    const ctx = {
+      num, dO, dC, boardImps, entries,
+      par: dO.meta["Par Puntos (NS)"],
+      res: { Abierta: dO.meta["Puntos Reales (NS)"], Cerrada: dC.meta["Puntos Reales (NS)"] },
+      teamImps: { "Equipo A": boardImps, "Equipo B": -boardImps },
+    };
+    // IMPs para un equipo con resultados (NS) hipotéticos de cada sala
+    ctx.impsFor = (team, rO, rC) => {
+      const d = rO - rC, a = getImps(Math.abs(d)) * (d >= 0 ? 1 : -1);
+      return team === "Equipo A" ? a : -a;
+    };
+    ctx.teamOfSide = (room, ns) => ((room === "Abierta") === ns ? "Equipo A" : "Equipo B");
+    return ctx;
+  }
+
+  // C) Errores decisivos: recorre el carteo de cada sala y detecta los errores
+  // que, en el momento de cometerse, cambian el signo de la mano para el equipo
+  // del que falla (gana -> empata/pierde, o empata -> pierde), comparando el
+  // resultado doble-dummy de ese momento con el resultado REAL de la otra sala.
+  _findDecisiveErrors(ctx) {
+    const out = [];
+    const sign = (x) => (x > 0 ? 1 : x < 0 ? -1 : 0);
+    const tn = (t, v) => (v === 0 ? "empate" : `${v > 0 ? t : (t === "Equipo A" ? "Equipo B" : "Equipo A")} +${Math.abs(v)}`);
+    for (const [rn, det] of [["Abierta", ctx.dO], ["Cerrada", ctx.dC]]) {
+      const other = rn === "Abierta" ? "Cerrada" : "Abierta";
+      for (const cp of det.meta.Critical_Plays || []) {
+        if (!(cp.points < 0) || cp.ns_before === undefined) continue;
+        const ns = isNS(cp.role);
+        const team = ctx.teamOfSide(rn, ns);
+        const imps = (nsVal) => rn === "Abierta"
+          ? ctx.impsFor(team, nsVal, ctx.res[other]) : ctx.impsFor(team, ctx.res[other], nsVal);
+        const before = imps(cp.ns_before), after = imps(cp.ns_after);
+        if (!(sign(after) < sign(before))) continue;
+        const entry = ctx.entries.find(e => e.room === rn && e.role === cp.role);
+        if (!entry) continue;
+        out.push({
+          entry, team, room: rn, trick: cp.trick, points: cp.points,
+          deltaNs: cp.ns_after - cp.ns_before, swing: before - after,
+          texto: `Sala ${rn.toLowerCase()}, baza ${cp.trick}: error de ${entry.p.Jugador} (${cp.points} pts) - la mano pasa de ${tn(team, before)} a ${tn(team, after)} IMPs`,
+        });
+      }
+    }
+    return out;
+  }
+
+  // Coste de errores de carteo NO decisivos de un jugador (para el ajuste 75/25)
+  _nonDecisiveErrCost(ctx, e) {
+    const dec = ctx.decisive.filter(d => d.entry === e).reduce((a, d) => a + (-d.points), 0);
+    return Math.max(0, (e.p.Coste_Errores_Carteo || 0) - dec);
+  }
+
+  // Criterio 3: reparte "imps" entre los dos miembros de una pareja
+  _splitPair(ctx, pair, imps, base) {
+    if (pair.length === 1) {
+      base.set(pair[0], (base.get(pair[0]) || 0) + imps);
+      pair[0].p.Nota_IMPs = `${imps} IMPs`;
+      return;
+    }
+    const bid = Math.abs(pair[0].p.Subasta + pair[1].p.Subasta);
+    const e = pair.map(x => this._nonDecisiveErrCost(ctx, x));
+    const denom = bid + e[0] + e[1];
+    let resp = pair.map((_, i) => denom > 0 ? (bid / 2 + e[i]) / denom : 0.5);
+    resp = resp.map(r => Math.min(0.5 + MAX_PLAY_SHIFT, Math.max(0.5 - MAX_PLAY_SHIFT, r)));
+    const shares = imps < 0 ? resp : resp.map(r => 1 - r);
+    pair.forEach((x, i) => {
+      base.set(x, (base.get(x) || 0) + imps * shares[i]);
+      x.p.Nota_IMPs = `${Math.round(shares[i] * 100)}% de ${pyRound2(imps)} IMPs de la pareja` +
+        (e[i] ? ` (errores carteo ${e[i]} pts)` : "");
+    });
+  }
+
+  _pairOf(ctx, room, ns) {
+    return ctx.entries.filter(e => e.room === room && e.ns === ns);
+  }
+
+  // Regla 2 (criterio A): ambas parejas por debajo del par, de equipos
+  // distintos y con el MISMO papel (las dos declaran o las dos defienden).
+  _attributeBothBelowPar(ctx) {
+    const { par, res } = ctx;
+    if (par !== ctx.dC.meta["Par Puntos (NS)"]) return null;
+    const dNsO = res.Abierta - par, dNsC = res.Cerrada - par;
+    if (dNsO === 0 || dNsC === 0) return null;
+    if ((dNsO < 0) !== (dNsC < 0)) return null; // mismo equipo
+    const failNS = dNsO < 0; // en las dos salas falla el mismo lado (NS o EO)
+    const declNS = (det) => { const k = det.meta.ContractKey; const m = k && k.match(/^\d(?:NT|[SHDC])([NESW])/); return m ? "NS".includes(m[1]) : null; };
+    const roleO = declNS(ctx.dO) === failNS, roleC = declNS(ctx.dC) === failNS;
+    if (declNS(ctx.dO) === null || declNS(ctx.dC) === null || roleO !== roleC) return null; // papel distinto -> regla B
+
+    const base = new Map();
+    const distO = Math.abs(dNsO), distC = Math.abs(dNsC);
+    this.boardsDetail[ctx.num].imps_summary.criterio =
+      `Ambas parejas bajo el par con el mismo papel (abierta ${-distO}, cerrada ${-distC}): ` +
+      (distO === distC ? "empate, reparto a cero" : `gana la pareja de la sala ${distO < distC ? "abierta" : "cerrada"}`);
+    for (const rn of ["Abierta", "Cerrada"]) {
+      const pair = this._pairOf(ctx, rn, failNS);
+      for (const e of ctx.entries.filter(e => e.room === rn && e.ns !== failNS)) {
+        base.set(e, 0); e.p.Nota_IMPs = "Defensa: 0 IMPs (ambas parejas bajo el par)";
+      }
+      if (pair.length) this._splitPair(ctx, pair, ctx.teamImps[pair[0].team], base);
+    }
+    return base;
+  }
+
+  // Regla B: las parejas que fallan son de equipos distintos pero con papel
+  // distinto. Los IMPs del ganador van a sus parejas POR ENCIMA del par (en
+  // proporción a lo que ganaron) y los del perdedor a sus parejas POR DEBAJO.
+  _attributeMixedRoles(ctx) {
+    const { par, res } = ctx;
+    const dNsO = res.Abierta - par, dNsC = res.Cerrada - par;
+    if (dNsO === 0 || dNsC === 0 || (dNsO < 0) !== (dNsC < 0)) return null;
+    const base = new Map();
+    this.boardsDetail[ctx.num].imps_summary.criterio =
+      "Parejas bajo el par con papel distinto: IMPs del ganador a su pareja por encima del par, los del perdedor a su pareja por debajo";
+    for (const team of ["Equipo A", "Equipo B"]) {
+      const T = ctx.teamImps[team];
+      const pairs = [];
+      for (const rn of ["Abierta", "Cerrada"]) for (const ns of [true, false]) {
+        const pr = this._pairOf(ctx, rn, ns);
+        if (!pr.length || pr[0].team !== team) continue;
+        const d = (ns ? 1 : -1) * (res[rn] - par);
+        pairs.push({ pr, d });
+      }
+      for (const { pr } of pairs) for (const e of pr) { base.set(e, 0); e.p.Nota_IMPs = "0 IMPs"; }
+      if (T === 0) continue;
+      const elig = pairs.filter(x => (T > 0 ? x.d > 0 : x.d < 0));
+      const tot = elig.reduce((a, x) => a + Math.abs(x.d), 0);
+      for (const x of elig) this._splitPair(ctx, x.pr, T * Math.abs(x.d) / tot, base);
+    }
+    return base;
+  }
+
+  // Reparto proporcional antiguo (por puntos técnicos de los 4 del equipo)
+  _attributeProportional(ctx) {
+    const base = new Map();
+    for (const tn of ["Equipo A", "Equipo B"]) {
+      const teamList = ctx.entries.filter(e => e.team === tn);
+      const timps = ctx.teamImps[tn];
+      if (!teamList.length) continue;
+      const origPts = teamList.map(e => e.p.Total);
+      let calcPts;
+      if (timps > 0 && origPts.every(v => v >= -100 && v <= 100)) {
+        calcPts = teamList.map(() => 1);
+      } else {
+        calcPts = origPts.slice();
+        if (timps > 0 && origPts.reduce((a, b) => a + b, 0) < 0) {
+          const offset = Math.abs(Math.min(...origPts));
+          calcPts = origPts.map(v => v + offset);
+        }
+      }
+      const sumCalc = calcPts.reduce((a, b) => a + b, 0);
+      let attrs = calcPts.map(v => timps * (sumCalc !== 0 ? v / sumCalc : 1 / teamList.length));
+      if (timps > 0 && attrs.some(a => a > timps)) {
+        const maxIdx = attrs.indexOf(Math.max(...attrs));
+        attrs = attrs.map((_, i) => i === maxIdx ? Number(timps) : 0.0);
+      } else if (timps < 0 && attrs.some(a => a < timps)) {
+        const minIdx = attrs.indexOf(Math.min(...attrs));
+        attrs = attrs.map((_, i) => i === minIdx ? Number(timps) : 0.0);
+      }
+      teamList.forEach((e, i) => base.set(e, attrs[i]));
+    }
+    return base;
+  }
+
+  // D) y E): capa de errores decisivos sobre el reparto base
+  _applyDecisiveLayer(ctx, base) {
+    const { par, res } = ctx;
+    for (const team of ["Equipo A", "Equipo B"]) {
+      const T = ctx.teamImps[team];
+      const errs = ctx.decisive.filter(d => d.team === team);
+      if (!errs.length || T === 0) continue;
+      const teamEntries = ctx.entries.filter(e => e.team === team);
+
+      if (T < 0) {
+        // D) Equipo que pierde: causas = el resto del déficit del equipo (el
+        // reparto base, como bloque) + cada error decisivo, en proporción a
+        // los IMPs que se habrían salvado sin cada una.
+        const errW = errs.map(d => {
+          const r = { ...res }; r[d.room] -= d.deltaNs;
+          return Math.max(0, ctx.impsFor(team, r.Abierta, r.Cerrada) - T);
+        });
+        const r = { ...res };
+        for (const rn of ["Abierta", "Cerrada"]) for (const ns of [true, false]) {
+          if (ctx.teamOfSide(rn, ns) !== team) continue;
+          const s = ns ? 1 : -1;
+          const D = s * (res[rn] - par);
+          const E = errs.filter(d => d.room === rn && d.entry.ns === ns).reduce((a, d) => a + s * d.deltaNs, 0);
+          const R = D - E;
+          if (R < 0) r[rn] -= s * R;
+        }
+        const baseW = Math.max(0, ctx.impsFor(team, r.Abierta, r.Cerrada) - T);
+        const totW = baseW + errW.reduce((a, b) => a + b, 0);
+        if (errW.every(w => w === 0) || totW === 0) continue;
+        const f = baseW / totW;
+        for (const e of teamEntries) {
+          const v = base.get(e) || 0;
+          base.set(e, v * f);
+          if (v && f < 1) e.p.Nota_IMPs += ` · bloque ${Math.round(f * 100)}%`;
+        }
+        errs.forEach((d, i) => {
+          if (!errW[i]) return;
+          const add = T * errW[i] / totW;
+          base.set(d.entry, (base.get(d.entry) || 0) + add);
+          d.entry.p.Nota_IMPs += ` · error decisivo baza ${d.trick} (${d.room.toLowerCase()}): ${pyRound2(add)} IMPs (sin él se salvaban ${errW[i]})`;
+        });
+        this.boardsDetail[ctx.num].imps_summary.criterio +=
+          ` · Pérdida de ${team} repartida por IMPs salvados: resto ${baseW}` +
+          errs.map((d, i) => errW[i] ? `, ${d.entry.p.Jugador} ${errW[i]}` : "").join("");
+      } else {
+        // E) Equipo que gana: cada error decisivo que luego se compensó carga
+        // PENAL_ERROR_DEVUELTO de los IMPs del equipo, que pasan a los demás.
+        let pens = errs.map(() => PENAL_ERROR_DEVUELTO * T);
+        const totP = pens.reduce((a, b) => a + b, 0);
+        if (totP > T) pens = pens.map(x => x * T / totP);
+        const penalized = new Set(errs.map(d => d.entry));
+        let recips = teamEntries.filter(e => !penalized.has(e) && (base.get(e) || 0) > 0);
+        let weights = recips.map(e => base.get(e));
+        if (!recips.length) {
+          recips = teamEntries.filter(e => !penalized.has(e));
+          weights = recips.map(() => 1);
+        }
+        if (!recips.length) continue;
+        const wSum = weights.reduce((a, b) => a + b, 0);
+        errs.forEach((d, i) => {
+          const pen = pens[i];
+          base.set(d.entry, (base.get(d.entry) || 0) - pen);
+          d.entry.p.Nota_IMPs += ` · error decisivo devuelto baza ${d.trick} (${d.room.toLowerCase()}): -${pyRound2(pen)} IMPs`;
+          recips.forEach((e, j) => base.set(e, (base.get(e) || 0) + pen * weights[j] / wSum));
+        });
+        for (const e of recips) e.p.Nota_IMPs += " · recibe la penalización por error devuelto";
+      }
+    }
+    // Redondeo a 2 decimales cuadrando el total exacto de cada equipo
+    for (const team of ["Equipo A", "Equipo B"]) {
+      const te = ctx.entries.filter(e => e.team === team);
+      te.forEach(e => base.set(e, pyRound2(base.get(e) || 0)));
+      const sum = te.reduce((a, e) => a + base.get(e), 0);
+      const gap = pyRound2(ctx.teamImps[team] - sum);
+      if (gap !== 0 && te.length) {
+        const big = te.reduce((m, e) => Math.abs(base.get(e)) > Math.abs(base.get(m)) ? e : m, te[0]);
+        base.set(big, pyRound2(base.get(big) + gap));
+      }
+    }
   }
 
   generateReportRows() {

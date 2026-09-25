@@ -91,3 +91,16 @@ Ya está. Esa dirección es la que puedes compartir con tus amigos.
   cada uno, con un tope de 75% / 25%.
 - Los parámetros (BID_SHARE_PER_PLAYER y MAX_PLAY_SHIFT) están explicados al
   principio de js/analyzer.js.
+
+## Cambios v5
+
+- La regla "gana la pareja que menos se aleja del par" solo se aplica si las
+  dos parejas que fallan tienen el mismo papel (las dos declaran o las dos
+  defienden). Si no, los IMPs del ganador van a su pareja por encima del par y
+  los del perdedor a su pareja por debajo.
+- Errores decisivos de carteo (en todas las manos): un error que en el momento
+  de cometerse cambia el signo de la mano. En el equipo que pierde, la pérdida
+  se reparte según los IMPs que se habrían salvado sin cada error. En el
+  equipo que gana, un error decisivo que luego devolvieron los contrarios
+  carga el 25% de los IMPs del equipo (PENAL_ERROR_DEVUELTO).
+- Debajo de cada mano se listan los errores decisivos y cómo cambia la mano.
