@@ -104,3 +104,9 @@ Ya está. Esa dirección es la que puedes compartir con tus amigos.
   equipo que gana, un error decisivo que luego devolvieron los contrarios
   carga el 25% de los IMPs del equipo (PENAL_ERROR_DEVUELTO).
 - Debajo de cada mano se listan los errores decisivos y cómo cambia la mano.
+
+## Contador de visitas (v5.1)
+
+El contador visible al pie de `index.html` usa el servicio gratuito hits.dwyl.com. No requiere crear una cuenta ni editar un identificador: ya está integrado en el archivo. Muestra visitas registradas por el servicio, no personas únicas garantizadas; puede verse afectado por caché, bloqueadores o visitas propias. El recuento empieza con esta versión y no recupera visitas anteriores. El navegador solicita el distintivo al servicio externo; los archivos PBN siguen procesándose en tu dispositivo.
+
+Para publicar esta versión, descomprime el ZIP y sube **el contenido** (no el ZIP) al repositorio en GitHub con **Add file → Upload files → Commit changes**. Espera 1-2 minutos a GitHub Pages y recarga con **Ctrl+F5**.

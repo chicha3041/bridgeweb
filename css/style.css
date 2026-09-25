@@ -31,6 +31,8 @@ table.diagram td { border: 0; vertical-align: top; padding: .2rem 1rem; }
 .suit.s { color: #222; } .suit.h { color: #c00; } .suit.d { color: #d60; } .suit.c { color: #060; }
 table.play td.crit { background: #ffe9e9; color: var(--neg); font-weight: 600; }
 footer { padding: 1rem 2rem; color: #777; font-size: .85rem; }
+.visit-counter { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-bottom: 0; }
+.visit-counter img { display: inline-block; vertical-align: middle; }
 
 /* Equipos en tablas */
 tr.team-sep td { background: #d9e2f3; font-weight: 700; color: #1f3a5f; }
