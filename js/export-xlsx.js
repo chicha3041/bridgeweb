@@ -4,7 +4,7 @@ import {
   filasInformePorEquipos, ordenarPorEquipos, ladoDe,
   calcularEstadisticasEquipos, filasJugadoresEquipo,
 } from "./analyzer.js";
-import { filterStats, eventOptions } from "./stats.js";
+import { filterSelection, eventOptions, teamOptions } from "./stats.js";
 import { pyRound2 } from "./bridge-core.js";
 
 const HEADER_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F3A5F" } };
@@ -47,7 +47,7 @@ function dataRow(ws, values, { bold = false, fill = null, numFmt = {} } = {}) {
   return r;
 }
 
-export async function exportToExcel(analyzer, stats, selectedEvent = "") {
+export async function exportToExcel(analyzer, stats, selectedEvent = "", selectedTeam = "") {
   const wb = new ExcelJS.Workbook();
   const boards = [...analyzer.activeBoards].sort((a, b) => a - b);
   const numFmtImps = { 5: "0.00" };
@@ -133,13 +133,17 @@ export async function exportToExcel(analyzer, stats, selectedEvent = "") {
   }
 
   // ---- Estadísticas por equipo ----
-  const { teams, legacyCount } = calcularEstadisticasEquipos(filterStats(stats, selectedEvent));
+  const { teams, legacyCount } = calcularEstadisticasEquipos(filterSelection(stats, selectedEvent, selectedTeam));
   const ids = Object.keys(teams);
   if (ids.length) {
     const wsE = wb.addWorksheet("Estadísticas");
     wsE.columns = [{ width: 26 }, { width: 10 }, { width: 8 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 11 }, { width: 12 }];
     titleRow(wsE, "ESTADÍSTICAS ACUMULADAS POR EQUIPO");
     dataRow(wsE, ["Ámbito", selectedEvent ? (eventOptions(stats).find(([key]) => key === selectedEvent) || [null, selectedEvent])[1] : "Global - todos los eventos"]);
+    dataRow(wsE, ["Equipo", selectedTeam ? (() => {
+      const team = teamOptions(stats, selectedEvent).find(([id]) => id === selectedTeam)?.[1];
+      return team ? `${team.name}${selectedEvent ? "" : ` (${team.event})`}` : selectedTeam;
+    })() : "Todos los equipos"]);
     wsE.addRow([]);
     ids.sort((a, b) => teams[b].imps - teams[a].imps);
     for (const id of ids) {

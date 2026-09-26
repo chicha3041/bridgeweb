@@ -142,3 +142,18 @@ Para publicar esta versión, descomprime el ZIP y sube **el contenido** (no el Z
 Para actualizar: descomprime el ZIP y sube **su contenido** al repositorio
 (GitHub: Add file > Upload files). Pulsa **Commit changes**, espera 1-2 minutos
 para GitHub Pages y recarga con **Ctrl+F5**.
+
+## Cambios v6.1 - filtro combinado de equipo y evento
+
+- Elige **Evento** (una liga o Global) y **Equipo** (todos o uno). La vista
+  acumulada se reduce al equipo seleccionado. Al cambiar de evento se conserva
+  el equipo si participa allí; si no, vuelve a Todos los equipos. El informe
+  de manos siempre corresponde al último partido analizado.
+- En Global, cada equipo lleva la etiqueta de su evento; seleccionar uno
+  muestra solo sus partidos de ese evento, sin mezclar equipos de distintas
+  ligas por un nombre o jugadores parecidos. Para ver un equipo en otra liga,
+  selecciónalo allí. Los equipos antiguos sin datos de equipo no aparecen
+  como opción; puedes reanalizar esos partidos para incorporarlos.
+- La hoja **Estadísticas** del Excel sigue ambos selectores; Resumen y hojas
+  de manos siguen siendo las del partido analizado. No cambia el esquema del
+  histórico v6 ni su migración desde v5, deduplicación o borrado por evento.

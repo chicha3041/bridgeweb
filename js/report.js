@@ -3,7 +3,7 @@ import {
   filasInformePorEquipos, ordenarPorEquipos,
   calcularEstadisticasEquipos, filasJugadoresEquipo,
 } from "./analyzer.js";
-import { renameEquipo, filterStats, eventLabel } from "./stats.js";
+import { renameEquipo, filterSelection, eventLabel } from "./stats.js";
 import { playViewHtml, initPlayViews, cardHtml } from "./playview.js";
 import { pyRound2 } from "./bridge-core.js";
 
@@ -130,8 +130,8 @@ function playTable(meta) {
 }
 
 // Sección de estadísticas acumuladas por equipo
-function statsHtml(stats, selectedEvent) {
-  stats = filterStats(stats, selectedEvent);
+function statsHtml(stats, selectedEvent, selectedTeam) {
+  stats = filterSelection(stats, selectedEvent, selectedTeam);
   const { teams, legacyCount } = calcularEstadisticasEquipos(stats);
   const ids = Object.keys(teams);
   const teamEvents = new Map();
@@ -173,12 +173,12 @@ function statsHtml(stats, selectedEvent) {
   return h;
 }
 
-export function renderStats(stats, container, selectedEvent = "") {
-  container.innerHTML = statsHtml(stats, selectedEvent);
-  bindRename(container, stats, selectedEvent);
+export function renderStats(stats, container, selectedEvent = "", selectedTeam = "") {
+  container.innerHTML = statsHtml(stats, selectedEvent, selectedTeam);
+  bindRename(container, stats, selectedEvent, selectedTeam);
 }
 
-export function renderReport(analyzer, stats, container, selectedEvent = "") {
+export function renderReport(analyzer, stats, container, selectedEvent = "", selectedTeam = "") {
   const boards = [...analyzer.activeBoards].sort((a, b) => a - b);
   let h = `<h2>Informe del partido</h2>`;
   h += `<p><b>Evento:</b> ${esc(analyzer.matchEvent || "-")} &nbsp; <b>Fecha:</b> ${esc(analyzer.matchDate || "-")} &nbsp; <b>Manos:</b> ${boards.length}</p>`;
@@ -251,13 +251,13 @@ export function renderReport(analyzer, stats, container, selectedEvent = "") {
   }
 
   // Estadísticas acumuladas por equipo
-  h += statsHtml(stats, selectedEvent);
+  h += statsHtml(stats, selectedEvent, selectedTeam);
 
   container.innerHTML = h;
   initPlayViews(analyzer, container);
-  bindRename(container, stats, selectedEvent, analyzer);
+  bindRename(container, stats, selectedEvent, selectedTeam, analyzer);
 }
-function bindRename(container, stats, selectedEvent, analyzer = null) {
+function bindRename(container, stats, selectedEvent, selectedTeam, analyzer = null) {
   container.querySelectorAll(".team-rename").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.team;
@@ -265,8 +265,8 @@ function bindRename(container, stats, selectedEvent, analyzer = null) {
       const nuevo = prompt("Nombre del equipo:", actual);
       if (nuevo && nuevo.trim()) {
         const s = renameEquipo(id, nuevo.trim());
-        if (analyzer) renderReport(analyzer, s, container, selectedEvent);
-        else renderStats(s, container, selectedEvent);
+        if (analyzer) renderReport(analyzer, s, container, selectedEvent, selectedTeam);
+        else renderStats(s, container, selectedEvent, selectedTeam);
       }
     });
   });

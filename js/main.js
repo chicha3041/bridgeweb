@@ -1,14 +1,15 @@
 import { parsePBN } from "./pbn.js";
 import { BridgeAnalyzer } from "./analyzer.js";
 import { DdsClient } from "./dds-client.js";
-import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions } from "./stats.js";
+import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions, teamOptions } from "./stats.js";
 import { renderReport, renderStats } from "./report.js";
 import { exportToExcel } from "./export-xlsx.js";
 
 const $ = (id) => document.getElementById(id);
 let lastAnalyzer = null;
 let selectedEvent = "";
-function refreshSelector(preferred) {
+let selectedTeam = "";
+function refreshSelector(preferred, preferredTeam = selectedTeam) {
   const stats = loadStats();
   const selector = $("event-filter");
   const events = eventOptions(stats);
@@ -16,9 +17,16 @@ function refreshSelector(preferred) {
     ...events.map(([key, label]) => new Option(label, key)));
   selector.value = events.some(([key]) => key === preferred) ? preferred : "";
   selectedEvent = selector.value;
+  const teamSelector = $("team-filter");
+  const teams = teamOptions(stats, selectedEvent);
+  teamSelector.replaceChildren(new Option("Todos los equipos", ""),
+    ...teams.map(([id, team]) => new Option(selectedEvent ? team.name : `${team.name} (${team.event})`, id)));
+  teamSelector.value = teams.some(([id]) => id === preferredTeam) ? preferredTeam : "";
+  selectedTeam = teamSelector.value;
+  teamSelector.disabled = !teams.length;
   $("clear-event-btn").disabled = !selectedEvent;
-  if (lastAnalyzer) renderReport(lastAnalyzer, stats, $("report"), selectedEvent);
-  else renderStats(stats, $("report"), selectedEvent);
+  if (lastAnalyzer) renderReport(lastAnalyzer, stats, $("report"), selectedEvent, selectedTeam);
+  else renderStats(stats, $("report"), selectedEvent, selectedTeam);
 }
 
 
@@ -91,7 +99,7 @@ $("export-btn").addEventListener("click", async () => {
   if (!lastAnalyzer) return;
   setStatus("Generando Excel...");
   try {
-    await exportToExcel(lastAnalyzer, loadStats(), selectedEvent);
+    await exportToExcel(lastAnalyzer, loadStats(), selectedEvent, selectedTeam);
     setStatus("Excel descargado.");
   } catch (err) {
     console.error(err);
@@ -107,6 +115,7 @@ $("clear-stats-btn").addEventListener("click", () => {
 });
 
 $("event-filter").addEventListener("change", () => refreshSelector($("event-filter").value));
+$("team-filter").addEventListener("change", () => refreshSelector(selectedEvent, $("team-filter").value));
 $("clear-event-btn").addEventListener("click", () => {
   const key = $("event-filter").value;
   const label = $("event-filter").selectedOptions[0].textContent;
