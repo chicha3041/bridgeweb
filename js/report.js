@@ -3,7 +3,7 @@ import {
   filasInformePorEquipos, ordenarPorEquipos,
   calcularEstadisticasEquipos, filasJugadoresEquipo,
 } from "./analyzer.js";
-import { renameEquipo } from "./stats.js";
+import { renameEquipo, filterStats, eventLabel } from "./stats.js";
 import { playViewHtml, initPlayViews, cardHtml } from "./playview.js";
 import { pyRound2 } from "./bridge-core.js";
 
@@ -130,9 +130,13 @@ function playTable(meta) {
 }
 
 // Sección de estadísticas acumuladas por equipo
-function statsHtml(stats) {
+function statsHtml(stats, selectedEvent) {
+  stats = filterStats(stats, selectedEvent);
   const { teams, legacyCount } = calcularEstadisticasEquipos(stats);
   const ids = Object.keys(teams);
+  const teamEvents = new Map();
+  if (!selectedEvent) for (const p of Object.values(stats.partidos || {}))
+    for (const side of Object.values(p.equipos || {})) if (side?.id) teamEvents.set(side.id, eventLabel(p.evento));
   let h = `<h3>Estadísticas acumuladas por equipo (${Object.keys(stats.partidos || {}).length} partido(s))</h3>`;
   if (!ids.length) {
     h += `<p><i>Sin histórico todavía.</i></p>`;
@@ -142,7 +146,7 @@ function statsHtml(stats) {
   for (const id of ids) {
     const t = teams[id];
     const butlerEq = t.manos ? Math.round((t.imps / t.manos) * 100) / 100 : 0;
-    h += `<div class="team-block"><h4 class="team-header">${esc(t.nombre)} ` +
+    h += `<div class="team-block"><h4 class="team-header">${esc(t.nombre)}${!selectedEvent ? ` <span class="small">(${esc(teamEvents.get(id) || "Sin evento")})</span>` : ""} ` +
       `<button type="button" class="team-rename small secondary" data-team="${esc(id)}" title="Renombrar equipo">✏️</button></h4>`;
     h += `<p class="team-summary"><b>${t.partidos}</b> partido(s) · <b>${t.manos}</b> manos · ` +
       `<b class="${t.imps < 0 ? "neg" : "pos"}">${Math.round(t.imps * 100) / 100} IMPs</b> · Butler equipo: <b>${butlerEq}</b> IMPs/mano · ` +
@@ -169,7 +173,12 @@ function statsHtml(stats) {
   return h;
 }
 
-export function renderReport(analyzer, stats, container) {
+export function renderStats(stats, container, selectedEvent = "") {
+  container.innerHTML = statsHtml(stats, selectedEvent);
+  bindRename(container, stats, selectedEvent);
+}
+
+export function renderReport(analyzer, stats, container, selectedEvent = "") {
   const boards = [...analyzer.activeBoards].sort((a, b) => a - b);
   let h = `<h2>Informe del partido</h2>`;
   h += `<p><b>Evento:</b> ${esc(analyzer.matchEvent || "-")} &nbsp; <b>Fecha:</b> ${esc(analyzer.matchDate || "-")} &nbsp; <b>Manos:</b> ${boards.length}</p>`;
@@ -242,10 +251,13 @@ export function renderReport(analyzer, stats, container) {
   }
 
   // Estadísticas acumuladas por equipo
-  h += statsHtml(stats);
+  h += statsHtml(stats, selectedEvent);
 
   container.innerHTML = h;
   initPlayViews(analyzer, container);
+  bindRename(container, stats, selectedEvent, analyzer);
+}
+function bindRename(container, stats, selectedEvent, analyzer = null) {
   container.querySelectorAll(".team-rename").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.team;
@@ -253,7 +265,8 @@ export function renderReport(analyzer, stats, container) {
       const nuevo = prompt("Nombre del equipo:", actual);
       if (nuevo && nuevo.trim()) {
         const s = renameEquipo(id, nuevo.trim());
-        renderReport(analyzer, s, container);
+        if (analyzer) renderReport(analyzer, s, container, selectedEvent);
+        else renderStats(s, container, selectedEvent);
       }
     });
   });

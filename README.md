@@ -63,7 +63,8 @@ Ya está. Esa dirección es la que puedes compartir con tus amigos.
    tarda un momento porque calcula el doble-dummy de cada jugada.
 4. Pulsa **Descargar informe Excel** para el informe completo en `.xlsx`.
 5. Las estadísticas acumuladas se guardan solas en el navegador; con
-   **Borrar histórico** empiezas de cero.
+   **Borrar evento** eliminas solo el evento elegido; **Borrar todo el histórico**
+  empieza de cero.
 
 ## Equipos y estadísticas
 
@@ -110,3 +111,34 @@ Ya está. Esa dirección es la que puedes compartir con tus amigos.
 El contador visible al pie de `index.html` usa el servicio gratuito hits.dwyl.com. No requiere crear una cuenta ni editar un identificador: ya está integrado en el archivo. Muestra visitas registradas por el servicio, no personas únicas garantizadas; puede verse afectado por caché, bloqueadores o visitas propias. El recuento empieza con esta versión y no recupera visitas anteriores. El navegador solicita el distintivo al servicio externo; los archivos PBN siguen procesándose en tu dispositivo.
 
 Para publicar esta versión, descomprime el ZIP y sube **el contenido** (no el ZIP) al repositorio en GitHub con **Add file → Upload files → Commit changes**. Espera 1-2 minutos a GitHub Pages y recarga con **Ctrl+F5**.
+
+## Cambios v6 - histórico por evento
+
+- El selector **Estadísticas** muestra un evento o **Global - todos los eventos**.
+  El informe de las manos siempre es del partido cargado. La hoja Estadísticas
+  del Excel respeta el selector; el resto del Excel sigue siendo del partido.
+- La clave del evento sale de `[Event "..."]` del PBN: se quitan acentos,
+  puntuación y diferencias entre mayúsculas y espacios. Si hay un sufijo
+  `: Equipo A vs Equipo B` (también `v.` o `contra`), se quita ese
+  enfrentamiento y se conserva la liga/temporada anterior. Así, `Liga AEB:
+  Last Minute vs Galactus` y otra jornada de Liga AEB van juntas; `Liga AEB
+  2025` y `Liga AEB 2026` quedan separadas. Sin etiqueta, va a **Sin evento**.
+  No se adivinan nombres equivalentes distintos: revisa la etiqueta en tus PBN
+  si dos partidos de la misma liga aparecen en dos opciones. Los eventos de
+  sala abierta y cerrada deben coincidir tras normalizar; si no, no se guarda.
+- La primera apertura convierte automáticamente el histórico v5 sin perder
+  partidos, datos por jugador ni nombres de equipo. Se conserva la etiqueta
+  original de cada partido. No se borra el histórico si falla la migración.
+- Los equipos se asignan **dentro de cada evento** por jugadores en común;
+  de esta forma una alineación de entrenamiento no altera el equipo de liga.
+  En Global aparecen los equipos de cada evento por separado, no se fusionan
+  por tener jugadores comunes. Los identificadores del partido ya guardado
+  se conservan al reanalizarlo. Los partidos se deduplican por el contenido
+  de ambos PBN; un partido antiguo equivalente se reemplaza al reanalizarlo.
+- **Borrar evento** borra solo los partidos del evento seleccionado; **Borrar
+  todo el histórico** borra todos. Ambas acciones piden confirmación. Todo
+  sigue guardado únicamente en este navegador; no se sincroniza entre equipos.
+
+Para actualizar: descomprime el ZIP y sube **su contenido** al repositorio
+(GitHub: Add file > Upload files). Pulsa **Commit changes**, espera 1-2 minutos
+para GitHub Pages y recarga con **Ctrl+F5**.

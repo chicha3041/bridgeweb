@@ -1,12 +1,26 @@
 import { parsePBN } from "./pbn.js";
 import { BridgeAnalyzer } from "./analyzer.js";
 import { DdsClient } from "./dds-client.js";
-import { loadStats, saveStats, clearStats, registrarEstadisticas } from "./stats.js";
-import { renderReport } from "./report.js";
+import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions } from "./stats.js";
+import { renderReport, renderStats } from "./report.js";
 import { exportToExcel } from "./export-xlsx.js";
 
 const $ = (id) => document.getElementById(id);
-let lastAnalyzer = null, lastStats = null;
+let lastAnalyzer = null;
+let selectedEvent = "";
+function refreshSelector(preferred) {
+  const stats = loadStats();
+  const selector = $("event-filter");
+  const events = eventOptions(stats);
+  selector.replaceChildren(new Option("Global - todos los eventos", ""),
+    ...events.map(([key, label]) => new Option(label, key)));
+  selector.value = events.some(([key]) => key === preferred) ? preferred : "";
+  selectedEvent = selector.value;
+  $("clear-event-btn").disabled = !selectedEvent;
+  if (lastAnalyzer) renderReport(lastAnalyzer, stats, $("report"), selectedEvent);
+  else renderStats(stats, $("report"), selectedEvent);
+}
+
 
 function setStatus(msg) { $("status").textContent = msg; }
 function setProgress(f) { $("progress").value = f; }
@@ -43,6 +57,10 @@ async function analyze() {
       parsed.push([boards, room]);
     }
 
+    // Evitar que un archivo con distintos eventos mezcle ligas silenciosamente.
+    const eventKeys = new Set(parsed.flatMap(([boards]) => boards.map(b => eventKey(b.info.Event))));
+    if (eventKeys.size > 1) throw new Error("Los PBN contienen eventos diferentes. Sepáralos por evento antes de analizarlos.");
+    analyzer.matchIdentity = [open, closed].filter(Boolean).map(f => f.text).sort().join("\n---SALA---\n");
     let done = 0;
     for (const [boards, room] of parsed) {
       for (const b of boards) {
@@ -55,8 +73,8 @@ async function analyze() {
     setStatus("Calculando atribución de IMPs...");
     analyzer.finalizeAnalysis();
     const stats = await registrarEstadisticas(analyzer);
-    lastAnalyzer = analyzer; lastStats = stats;
-    renderReport(analyzer, stats, $("report"));
+    lastAnalyzer = analyzer;
+    refreshSelector(eventKey(analyzer.matchEvent));
     $("export-btn").disabled = false;
     setStatus("Análisis completo.");
     setProgress(1);
@@ -70,10 +88,10 @@ async function analyze() {
 
 $("analyze-btn").addEventListener("click", analyze);
 $("export-btn").addEventListener("click", async () => {
-  if (!lastAnalyzer || !lastStats) return;
+  if (!lastAnalyzer) return;
   setStatus("Generando Excel...");
   try {
-    await exportToExcel(lastAnalyzer, lastStats);
+    await exportToExcel(lastAnalyzer, loadStats(), selectedEvent);
     setStatus("Excel descargado.");
   } catch (err) {
     console.error(err);
@@ -84,6 +102,21 @@ $("clear-stats-btn").addEventListener("click", () => {
   if (confirm("¿Borrar todo el histórico de partidos guardado en este navegador?")) {
     clearStats();
     setStatus("Histórico borrado.");
-    if (lastAnalyzer) renderReport(lastAnalyzer, loadStats(), $("report"));
+    refreshSelector("");
   }
 });
+
+$("event-filter").addEventListener("change", () => refreshSelector($("event-filter").value));
+$("clear-event-btn").addEventListener("click", () => {
+  const key = $("event-filter").value;
+  const label = $("event-filter").selectedOptions[0].textContent;
+  if (key && confirm(`¿Borrar solo los partidos de «${label}» guardados en este navegador?`)) {
+    clearStats(key);
+    refreshSelector("");
+    setStatus(`Histórico de «${label}» borrado.`);
+  }
+});
+try { refreshSelector(""); } catch (err) {
+  console.error(err);
+  setStatus("No se pudo leer el histórico: " + err.message);
+}
