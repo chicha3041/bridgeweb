@@ -1,4 +1,5 @@
 import { parsePBN } from "./pbn.js";
+import { parseLIN } from "./lin.js";
 import { BridgeAnalyzer } from "./analyzer.js";
 import { DdsClient } from "./dds-client.js";
 import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions, teamOptions } from "./stats.js";
@@ -42,7 +43,7 @@ async function readFile(input) {
 async function analyze() {
   const open = await readFile($("file-open"));
   const closed = await readFile($("file-closed"));
-  if (!open && !closed) { setStatus("Sube al menos un archivo PBN."); return; }
+  if (!open && !closed) { setStatus("Sube al menos un archivo PBN o LIN."); return; }
 
   $("analyze-btn").disabled = true;
   $("report").innerHTML = "";
@@ -51,16 +52,19 @@ async function analyze() {
     const dds = new DdsClient();
     const analyzer = new BridgeAnalyzer(dds);
     analyzer.sourceFiles = [open, closed].filter(Boolean).map(f => f.name);
+    analyzer.singleTable = !(open && closed);
 
     const rooms = [];
     if (open) rooms.push([open, "Abierta"]);
-    if (closed) rooms.push([closed, "Cerrada"]);
+    if (closed) rooms.push([closed, analyzer.singleTable ? "Abierta" : "Cerrada"]);
 
     let totalBoards = 0;
     const parsed = [];
     for (const [file, room] of rooms) {
-      const boards = parsePBN(file.text);
-      if (!boards.length) { setStatus(`No se encontraron manos en ${file.name}. ¿Es un PBN válido?`); $("analyze-btn").disabled = false; return; }
+      const content = file.text.replace(/^\uFEFF/, "").trimStart();
+      const boards = /^\[[A-Za-z]+\s+"/.test(content) ? parsePBN(content) :
+        /(?:^|\|)md\|/i.test(content) ? parseLIN(content) : [];
+      if (!boards.length) throw new Error(`No se encontraron manos válidas en ${file.name}. Comprueba el contenido PBN/LIN.`);
       totalBoards += boards.length;
       parsed.push([boards, room]);
     }
@@ -68,7 +72,14 @@ async function analyze() {
     // Evitar que un archivo con distintos eventos mezcle ligas silenciosamente.
     const eventKeys = new Set(parsed.flatMap(([boards]) => boards.map(b => eventKey(b.info.Event))));
     if (eventKeys.size > 1) throw new Error("Los PBN contienen eventos diferentes. Sepáralos por evento antes de analizarlos.");
-    analyzer.matchIdentity = [open, closed].filter(Boolean).map(f => f.text).sort().join("\n---SALA---\n");
+    const canonical = b => ({boardNum:b.boardNum, vul:b.vul, dealer:b.dealer,
+      hands:b.hands, contract:b.contract, auction:b.auction, play:b.play,
+      names:["North","East","South","West"].map(k=>b.info[k]),
+      event:eventKey(b.info.Event), date:b.info.Date || ""});
+    analyzer.matchIdentity = (analyzer.singleTable ? "MESA-UNICA\n" : "DOS-SALAS\n") +
+      parsed.map(([boards]) => JSON.stringify(boards.map(canonical))).sort().join("\n---SALA---\n");
+    // Identidad v6.1: permite sustituir el partido guardado antes de esta actualización.
+    analyzer.legacyMatchIdentity = [open,closed].filter(Boolean).map(f=>f.text).sort().join("\n---SALA---\n");
     let done = 0;
     for (const [boards, room] of parsed) {
       for (const b of boards) {
@@ -82,7 +93,7 @@ async function analyze() {
     analyzer.finalizeAnalysis();
     const stats = await registrarEstadisticas(analyzer);
     lastAnalyzer = analyzer;
-    refreshSelector(eventKey(analyzer.matchEvent));
+    refreshSelector((analyzer.singleTable ? "mesa-unica:" : "") + eventKey(analyzer.matchEvent));
     $("export-btn").disabled = false;
     setStatus("Análisis completo.");
     setProgress(1);

@@ -180,7 +180,7 @@ export function renderStats(stats, container, selectedEvent = "", selectedTeam =
 
 export function renderReport(analyzer, stats, container, selectedEvent = "", selectedTeam = "") {
   const boards = [...analyzer.activeBoards].sort((a, b) => a - b);
-  let h = `<h2>Informe del partido</h2>`;
+  let h = `<h2>Informe ${analyzer.singleTable ? "de mesa única (contra el par)" : "del partido"}</h2>`;
   h += `<p><b>Evento:</b> ${esc(analyzer.matchEvent || "-")} &nbsp; <b>Fecha:</b> ${esc(analyzer.matchDate || "-")} &nbsp; <b>Manos:</b> ${boards.length}</p>`;
 
   // Tabla técnica del partido, agrupada por equipos
@@ -216,7 +216,7 @@ export function renderReport(analyzer, stats, container, selectedEvent = "", sel
 
   // Balance
   const ra = analyzer.matchGrossGain["Equipo A"], rb = analyzer.matchGrossGain["Equipo B"];
-  h += `<h3>Balance del partido</h3><p>Equipo A (NS en abierta / EO en cerrada): <b>${ra}</b> IMPs brutos &nbsp;|&nbsp; Equipo B: <b>${rb}</b> IMPs brutos &nbsp;|&nbsp; Resultado neto: <b>${ra - rb}</b> IMPs &nbsp;→&nbsp; <b>${ra > rb ? "EQUIPO A" : rb > ra ? "EQUIPO B" : "EMPATE"}${ra !== rb ? ` GANA POR ${Math.abs(ra - rb)} IMPs` : ""}</b></p>`;
+  h += `<h3>Balance del partido</h3><p>${analyzer.singleTable ? "Equipo A (NS)" : "Equipo A (NS en abierta / EO en cerrada)"}: <b>${ra}</b> IMPs brutos &nbsp;|&nbsp; ${analyzer.singleTable ? "Equipo B (EO)" : "Equipo B"}: <b>${rb}</b> IMPs brutos &nbsp;|&nbsp; Resultado neto: <b>${ra - rb}</b> IMPs &nbsp;→&nbsp; <b>${ra > rb ? "EQUIPO A" : rb > ra ? "EQUIPO B" : "EMPATE"}${ra !== rb ? ` GANA POR ${Math.abs(ra - rb)} IMPs` : ""}</b></p>`;
 
   // Detalle por mano
   h += `<h3>Detalle por mano</h3>`;
@@ -224,14 +224,14 @@ export function renderReport(analyzer, stats, container, selectedEvent = "", sel
     const bd = analyzer.boardsDetail[num];
     h += `<details class="board"><summary><b>Mano ${num}</b>`;
     const s = bd.imps_summary || {};
-    if (s.board_imps !== undefined) h += ` &nbsp; (diff ${s.diff_pts} pts NS → ${s.board_imps} IMPs para Equipo ${s.board_imps >= 0 ? "A" : "B"})`;
+    if (s.board_imps !== undefined) h += ` &nbsp; (diff ${s.diff_pts} pts NS → ${s.board_imps} IMPs para Equipo ${s.board_imps > 0 ? "A" : s.board_imps < 0 ? "B" : "ninguno"})`;
     h += `</summary>`;
     for (const room of ["Abierta", "Cerrada"]) {
       const det = bd[room];
       if (!det) continue;
       const m = det.meta;
       const otherDet = bd[room === "Abierta" ? "Cerrada" : "Abierta"];
-      h += `<div class="room"><h3>Sala ${room}</h3>`;
+      h += `<div class="room"><h3>${analyzer.singleTable ? "Mesa única" : `Sala ${room}`}</h3>`;
       h += `<h4 class="auc-title">Subasta</h4>` + auctionHtml(m, otherDet && otherDet.meta);
       h += `<p><b>Contrato:</b> ${contractHtml(m["Contrato Final"])} &nbsp; <b>Puntos (NS):</b> ${m["Puntos Reales (NS)"]}<br>` +
         `<b>Par:</b> ${contractHtml(m["Par Contrato"])} (${m["Par Puntos (NS)"]} pts NS) &nbsp; <b>Vul:</b> ${esc(m.Vulnerabilidad)} &nbsp; <b>Dador:</b> ${esc(m.Dador)}${m.Comentarios ? `<br><i>${esc(m.Comentarios)}</i>` : ""}</p>`;

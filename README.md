@@ -157,3 +157,69 @@ para GitHub Pages y recarga con **Ctrl+F5**.
 - La hoja **Estadísticas** del Excel sigue ambos selectores; Resumen y hojas
   de manos siguen siendo las del partido analizado. No cambia el esquema del
   histórico v6 ni su migración desde v5, deduplicación o borrado por evento.
+
+## Cambios v7 - entrada LIN y mesa única
+
+**Entrada.** Se aceptan `.pbn`, `.lin` y `.txt` en cualquiera de los dos campos.
+La detección es por contenido: etiqueta PBN `[Event "..."]` o registro LIN `md|...|`.
+Dos archivos conservan el partido de dos salas. Un archivo solo, en cualquiera
+ de los campos, activa automáticamente **mesa única**. No se publica ni se sube
+ningún archivo a un servidor: DDS y el histórico trabajan en el navegador.
+
+**LIN.** El lector en `js/lin.js` admite manos de tres o cuatro jugadores en
+`md|` (orden Sur-Oeste-Norte-[Este], cuarto completado desde la baraja),
+`pn|` con el mismo orden de nombres, `sv|`, `qx|` o `ah|` para número, `mb|`
+para subasta (P/D/R), `pc|` en orden cronológico y `mc|` para bazas finales
+ del declarante cuando hubo reclamación. `tn|` o `rh|` aportan evento y
+`dt|` la fecha si existen. Sin evento se guarda en **Sin evento**; si quieres
+separar ligas, asegúrate de que el LIN lo traiga. Un carteo parcial sin `mc`
+se rechaza: adivinar el resultado afectaría puntos e IMPs. Se rechazan
+repartos incompletos o duplicados y cartas jugadas fuera del reparto.
+
+LIN es una notación privada sin especificación pública completa. Se han
+contrastado los tags con ejemplos de los foros de BBO y el lector abierto
+morgoth/lin:
+- https://www.bridgebase.com/forums/topic/85366-lin-file-format/
+- https://www.bridgebase.com/forums/topic/2233-example-lin-file-for-upload-to-tourney/
+- https://raw.githubusercontent.com/morgoth/lin/master/lib/lin/parser.rb
+
+Otros dialectos LIN podrían traer el resultado en tags distintos o carecer de
+subasta/carteo; no se extrapola un resultado no presente. Para comprobar un
+archivo real que falle, conserva el LIN y el error mostrado antes de editarlo.
+`tests/mesa1.lin` y `tests/mesa2.lin` son conversión sintética de los PBN
+adjuntos, no exportaciones reales de BBO. `node tests/lin-equivalence.mjs
+<mesa1.pbn> <mesa2.pbn>` reproduce la prueba de equivalencia de las 28 manos.
+
+**Sala fantasma.** Para cada mano la referencia de la otra sala es exactamente
+el par NS que calcula DDS: `IMPs = tabla_IMPs(resultado_NS_real - par_NS)`.
+No se inventan cuatro jugadores más. El equipo A son NS y el B son EO de la
+mesa real; el par ganador es el que sale mejor que el par, y si una pareja
+queda por debajo del par carga los IMPs negativos. Cada pareja empieza 50/50;
+el ajuste por errores de carteo no decisivos tiene tope 75/25 y los errores
+que cambian el signo de los IMPs se comparan **contra el par** con la capa
+v5 de errores decisivos y penalización del 25% si el error se devuelve.
+La puntuación técnica sigue siendo resultado menos par y no cambia.
+El par de DDS es una referencia de puntuación, **no** una sala con jugadores
+ni un resultado real de otro equipo. Así, el balance de mesa única no se
+interpreta como marcador oficial entre dos equipos de cuatro.
+
+**Histórico.** Cada partido de mesa única guarda `mesaUnica: true` y una clave
+de evento `mesa-unica:<evento>`, visible como "Mesa única · <evento>". Se
+separa de la liga homónima de dos salas, incluidos equipos y asignación por
+plantilla. La vista Global muestra ambas series **etiquetadas por separado**;
+selecciona la serie de Evento para ver solo una. El equipo fantasma no tiene
+identidad ni jugadores y no entra en estadísticas. PBN y LIN equivalentes
+comparten huella de contenido y se sustituyen al reanalizar; para un partido
+v6.1 anterior con el mismo contenido bruto, se conserva su identificador.
+
+**Prueba Chrome local.** Los dos PBN del 22/09/2026 mantienen Last Minute vs
+Galactus 24-50 IMPs, neto -26. Los LIN sintéticos correspondientes dan el mismo
+informe, puntos por jugador y 24-50. Solo mesa 1 frente al par da 39 IMPs
+brutos NS y 62 EO, neto -23: por ejemplo, mano 1, resultado NS supera el par
+por 500 puntos = +11 IMPs NS; mano 2 cae 300 puntos = -7 IMPs NS.
+La misma mesa en LIN repite resultados idénticos. La prueba sucesiva deja
+solo dos historiales (uno dos salas y otro mesa única) con filtros separados.
+
+**Publicación por David:** descomprime el ZIP, sube los archivos de dentro al
+repositorio con **Upload files**, pulsa **Commit changes**, espera 1-2 minutos
+y recarga con **Ctrl+F5**. Esta entrega no se ha publicado.

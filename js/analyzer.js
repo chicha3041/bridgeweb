@@ -136,6 +136,7 @@ export class BridgeAnalyzer {
     this.matchDate = null;
     this.matchEvent = null;
     this.sourceFiles = [];
+    this.singleTable = false;
   }
 
   getPlayerName(board, role) {
@@ -323,8 +324,15 @@ export class BridgeAnalyzer {
     this.matchGrossGain = { "Equipo A": 0, "Equipo B": 0 };
     const sortedBoards = [...this.activeBoards].sort((a, b) => a - b);
     for (const num of sortedBoards) {
-      const dO = this.boardsDetail[num]["Abierta"], dC = this.boardsDetail[num]["Cerrada"];
-      if (!(dO && dC)) continue;
+      const dO = this.boardsDetail[num]["Abierta"];
+      if (!dO) continue;
+      // La sala fantasma solo aporta el par como referencia de puntuación.
+      // No tiene jugadores, errores ni presencia en el histórico.
+      const dC = this.singleTable ? {
+        meta: { "Puntos Reales (NS)": dO.meta["Par Puntos (NS)"],
+          "Par Puntos (NS)": dO.meta["Par Puntos (NS)"], Critical_Plays: [] }, players: [],
+      } : this.boardsDetail[num]["Cerrada"];
+      if (!dC) continue;
       const diff = dO.meta["Puntos Reales (NS)"] - dC.meta["Puntos Reales (NS)"];
       const boardImps = getImps(diff) * (diff >= 0 ? 1 : -1);
       if (boardImps > 0) this.matchGrossGain["Equipo A"] += boardImps;
@@ -341,7 +349,8 @@ export class BridgeAnalyzer {
       summary.errores_decisivos = ctx.decisive.map(e => e.texto);
 
       // Reparto base: regla 2 (A), regla B o proporcional antiguo
-      const base = this._attributeBothBelowPar(ctx) || this._attributeMixedRoles(ctx) || this._attributeProportional(ctx);
+      const base = (this.singleTable ? this._attributeSingleTable(ctx) :
+        this._attributeBothBelowPar(ctx) || this._attributeMixedRoles(ctx) || this._attributeProportional(ctx));
       // D) y E) capa de errores decisivos
       this._applyDecisiveLayer(ctx, base);
 
@@ -351,6 +360,21 @@ export class BridgeAnalyzer {
         this.playersData[e.p.Jugador].imps[num] = e.p.IMPs_Atribuidos;
       }
     }
+  }
+
+  // Mesa única: en abierta NS es A y EO es B. La comparación par da
+  // exactamente +I y -I; ambos bandos reales reciben sus IMPs por parejas.
+  // El ajuste 75/25 y la capa de errores decisivos son los mismos que v5.
+  _attributeSingleTable(ctx) {
+    const base = new Map();
+    this.boardsDetail[ctx.num].imps_summary.criterio =
+      "Mesa única: resultado NS real frente al par (sala fantasma sin jugadores); " +
+      "IMPs por parejas, 50/50 ajustado por errores hasta 75/25, y errores decisivos frente al par";
+    for (const ns of [true, false]) {
+      const pair = this._pairOf(ctx, "Abierta", ns);
+      if (pair.length) this._splitPair(ctx, pair, ctx.teamImps[pair[0].team], base);
+    }
+    return base;
   }
 
   // Datos comunes de la mano: jugadores con equipo/sala/pareja y resultados

@@ -11,19 +11,20 @@
 <body>
 <header>
   <h1>BridgeLab</h1>
-  <p>Analizador de partidos de bridge por equipos (BBO / MyHands). Sube los PBN de las dos salas y obtén el informe con puntos técnicos, IMPs atribuidos, butler individual y estadísticas acumuladas.</p>
+  <p>Analizador de partidos de bridge por equipos (BBO / MyHands). Sube PBN o LIN de dos salas, o un solo archivo para mesa única y obtén el informe con puntos técnicos, IMPs atribuidos, butler individual y estadísticas acumuladas.</p>
 </header>
 
 <main>
   <section class="upload">
     <div class="file-box">
-      <label for="file-open"><b>Sala abierta</b> (PBN)</label>
-      <input type="file" id="file-open" accept=".pbn,.PBN">
+      <label for="file-open"><b>Sala abierta</b> (PBN o LIN)</label>
+      <input type="file" id="file-open" accept=".pbn,.PBN,.lin,.LIN,.txt">
     </div>
     <div class="file-box">
-      <label for="file-closed"><b>Sala cerrada</b> (PBN)</label>
-      <input type="file" id="file-closed" accept=".pbn,.PBN">
+      <label for="file-closed"><b>Sala cerrada</b> (PBN o LIN)</label>
+      <input type="file" id="file-closed" accept=".pbn,.PBN,.lin,.LIN,.txt">
     </div>
+    <p class="small">Dos archivos: partido entre dos salas. Uno solo, en cualquiera de los campos: mesa única contra el par (sala fantasma). El formato se detecta por contenido.</p>
     <div class="actions">
       <button id="analyze-btn">Analizar partido</button>
       <button id="export-btn" disabled>Descargar informe Excel</button>

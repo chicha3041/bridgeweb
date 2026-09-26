@@ -21,7 +21,7 @@ export function eventOptions(stats) {
   const result = new Map();
   for (const p of Object.values(stats.partidos || {})) {
     const key = p.eventoClave || eventKey(p.evento);
-    if (!result.has(key)) result.set(key, eventLabel(p.evento));
+    if (!result.has(key)) result.set(key, (p.mesaUnica ? "Mesa única · " : "") + eventLabel(p.evento));
   }
   return [...result].sort((a, b) => a[1].localeCompare(b[1], "es"));
 }
@@ -155,7 +155,7 @@ function asignarEquipo(stats, roster, eventoClave, excluidos = new Set()) {
 }
 export async function registrarEstadisticas(analyzer) {
   const stats = loadStats();
-  const eventoClave = eventKey(analyzer.matchEvent);
+  const eventoClave = (analyzer.singleTable ? "mesa-unica:" : "") + eventKey(analyzer.matchEvent);
   const jugadores = {};
   for (const [name, d] of Object.entries(analyzer.playersData)) {
     if (!name) continue;
@@ -168,10 +168,14 @@ export async function registrarEstadisticas(analyzer) {
     };
   }
   const key = await matchKey(analyzer);
+  const legacyKey = analyzer.legacyMatchIdentity && !analyzer.singleTable ?
+    (await sha256Hex(analyzer.legacyMatchIdentity)).slice(0,24) : null;
   // Compatibilidad al volver a analizar un partido guardado en v5: sustituir solo
   // si coinciden fecha, evento y archivos; nunca descartar otro partido distinto.
-  let replaceKey = key;
-  if (!stats.partidos[key]) {
+  let replaceKey = stats.partidos[key] ? key :
+    stats.partidos[legacyKey] ? legacyKey :
+    Object.entries(stats.partidos).find(([,p])=>p.firma === key)?.[0] || key;
+  if (replaceKey === key && !stats.partidos[key] && !analyzer.singleTable) {
     const files = analyzer.sourceFiles.map(f => f.split("/").pop()).sort().join("|");
     const old = Object.entries(stats.partidos).find(([id, p]) => id.length === 12 &&
       p.fecha === analyzer.matchDate && p.eventoClave === eventoClave &&
@@ -192,8 +196,9 @@ export async function registrarEstadisticas(analyzer) {
   }
   const now = new Date(), pad = n => String(n).padStart(2, "0");
   stats.partidos[replaceKey] = {
+    firma: key,
     fecha: analyzer.matchDate || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
-    evento: analyzer.matchEvent || "", eventoClave,
+    evento: analyzer.matchEvent || "", eventoClave, mesaUnica: !!analyzer.singleTable,
     archivos: analyzer.sourceFiles.map(f => f.split("/").pop()),
     manos: analyzer.activeBoards.size,
     procesado: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`,

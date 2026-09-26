@@ -55,7 +55,7 @@ export async function exportToExcel(analyzer, stats, selectedEvent = "", selecte
   // ---- Resumen (primera hoja: lo importante de un vistazo) ----
   const ws = wb.addWorksheet("Resumen");
   ws.columns = [{ width: 28 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }];
-  titleRow(ws, "INFORME DEL PARTIDO");
+  titleRow(ws, analyzer.singleTable ? "INFORME MESA ÚNICA (CONTRA EL PAR)" : "INFORME DEL PARTIDO");
   dataRow(ws, ["Evento", analyzer.matchEvent || "-"]);
   dataRow(ws, ["Fecha", analyzer.matchDate || "-"]);
   dataRow(ws, ["Manos", boards.length]);
