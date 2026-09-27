@@ -1,5 +1,6 @@
 import { parsePBN } from "./pbn.js";
 import { parseLIN } from "./lin.js";
+import { detectFormat } from "./format.js";
 import { BridgeAnalyzer } from "./analyzer.js";
 import { DdsClient } from "./dds-client.js";
 import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions, teamOptions } from "./stats.js";
@@ -62,8 +63,9 @@ async function analyze() {
     const parsed = [];
     for (const [file, room] of rooms) {
       const content = file.text.replace(/^\uFEFF/, "").trimStart();
-      const boards = /^\[[A-Za-z]+\s+"/.test(content) ? parsePBN(content) :
-        /(?:^|\|)md\|/i.test(content) ? parseLIN(content) : [];
+      const format = detectFormat(content);
+      const boards = format === "pbn" ? parsePBN(content) :
+        format === "lin" ? parseLIN(content) : [];
       if (!boards.length) throw new Error(`No se encontraron manos válidas en ${file.name}. Comprueba el contenido PBN/LIN.`);
       totalBoards += boards.length;
       parsed.push([boards, room]);

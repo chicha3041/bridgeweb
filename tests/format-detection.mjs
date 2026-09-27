@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { detectFormat } from '../js/format.js';
+import { parsePBN } from '../js/pbn.js';
+import { parseLIN } from '../js/lin.js';
+const pbn = process.argv[2];
+if (!pbn) throw new Error('Usage: node tests/format-detection.mjs /path/to/bbo-helper.pbn');
+const text = readFileSync(pbn, 'utf8');
+assert.equal(detectFormat(text), 'pbn');
+const boards = parsePBN(text);
+assert.equal(boards.length, 25);
+assert.deepEqual(boards.map(b => b.boardNum), Array.from({length:25}, (_,i)=>i+1));
+assert.ok(boards.every(b => b.hands.every(h => h.length === 13)));
+assert.equal(detectFormat(readFileSync('tests/mesa1.lin','utf8')), 'lin');
+assert.equal(parseLIN(readFileSync('tests/mesa1.lin','utf8')).length, 14);
+console.log(`OK: ${boards.length} BBO Helper PBN boards, 14 existing LIN boards; format detection works with % header and CRLF.`);
