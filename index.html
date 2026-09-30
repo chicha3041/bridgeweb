@@ -8,10 +8,12 @@
 <link rel="stylesheet" href="css/style.css">
 <script src="js/vendor/exceljs.min.js" defer></script>
 <script src="js/vendor/jszip.min.js" defer></script>
+<script src="js/vendor/jspdf.umd.min.js" defer></script>
+<script src="js/vendor/jspdf.plugin.autotable.min.js" defer></script>
 </head>
 <body>
 <header>
-  <h1>BridgeLab</h1>
+  <h1>BridgeLab <span class="small">v7.3</span></h1>
   <p>Analizador de partidos de bridge por equipos (BBO / MyHands). Sube PBN, LIN o ZIP de las salas, o una sola sala para mesa única y obtén el informe con puntos técnicos, IMPs atribuidos, butler individual y estadísticas acumuladas.</p>
 </header>
 
@@ -29,6 +31,7 @@
     <div class="actions">
       <button id="analyze-btn">Analizar partido</button>
       <button id="export-btn" disabled>Descargar informe Excel</button>
+      <button id="pdf-btn" disabled>Descargar PDF del equipo</button>
       <button id="clear-event-btn" class="secondary" disabled>Borrar evento</button>
       <button id="clear-stats-btn" class="secondary">Borrar todo el histórico</button>
     </div>

@@ -30,7 +30,16 @@ export function filterStats(stats, key) {
   return { ...stats, partidos: Object.fromEntries(Object.entries(stats.partidos || {})
     .filter(([, p]) => (p.eventoClave || eventKey(p.evento)) === key)) };
 }
-// Los IDs son propios de cada evento; nunca se fusionan por nombre o plantilla.
+// Los IDs guardados siguen siendo propios de cada evento. Global agrupa solo
+// en una proyección de lectura por nombre, nunca por coincidencias de plantilla.
+export function teamKey(nombre) {
+  return String(nombre || "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function globalTeamId(stats, id) {
+  const key = teamKey(stats.equipos?.[id]?.nombre || id);
+  return "global:" + (key || id);
+}
 export function teamOptions(stats, selectedEvent = "") {
   const events = new Map(eventOptions(stats));
   const options = new Map();
@@ -39,22 +48,39 @@ export function teamOptions(stats, selectedEvent = "") {
     if (selectedEvent && key !== selectedEvent) continue;
     for (const side of Object.values(p.equipos || {})) {
       if (!side?.id) continue;
+      const id = selectedEvent ? side.id : globalTeamId(stats, side.id);
       const name = stats.equipos?.[side.id]?.nombre || side.id;
-      options.set(side.id, { name, event: events.get(key) || eventLabel(p.evento) });
+      if (!options.has(id)) options.set(id, { name, event: selectedEvent ?
+        events.get(key) || eventLabel(p.evento) : "Todos los eventos" });
     }
   }
   return [...options].sort((a, b) => a[1].name.localeCompare(b[1].name, "es") ||
-    a[1].event.localeCompare(b[1].event, "es") || a[0].localeCompare(b[0]));
+    a[0].localeCompare(b[0]));
 }
 export function filterTeam(stats, selectedTeam = "") {
   if (!selectedTeam) return stats;
+  const matches = side => side?.id && (side.id === selectedTeam ||
+    (selectedTeam.startsWith("global:") && globalTeamId(stats, side.id) === selectedTeam));
   return { ...stats, partidos: Object.fromEntries(Object.entries(stats.partidos || {})
-    .filter(([, p]) => Object.values(p.equipos || {}).some(side => side?.id === selectedTeam))
+    .filter(([, p]) => Object.values(p.equipos || {}).some(matches))
     .map(([key, p]) => [key, { ...p, equipos: Object.fromEntries(Object.entries(p.equipos || {})
-      .filter(([, side]) => side?.id === selectedTeam)) }])) };
+      .filter(([, side]) => matches(side))) }])) };
 }
 export function filterSelection(stats, selectedEvent = "", selectedTeam = "") {
-  return filterTeam(filterStats(stats, selectedEvent), selectedTeam);
+  const filtered = filterTeam(filterStats(stats, selectedEvent), selectedTeam);
+  if (selectedEvent) return filtered;
+  const equipos = {};
+  const partidos = Object.fromEntries(Object.entries(filtered.partidos || {}).map(([key, p]) => {
+    const sides = Object.fromEntries(Object.entries(p.equipos || {}).map(([side, value]) => {
+      if (!value?.id) return [side, value];
+      const id = globalTeamId(stats, value.id);
+      equipos[id] ||= { nombre: stats.equipos?.[value.id]?.nombre || value.id, jugadores: [] };
+      equipos[id].jugadores = [...new Set([...equipos[id].jugadores, ...(value.jugadores || [])])];
+      return [side, { ...value, id }];
+    }));
+    return [key, { ...p, ...(p.equipos ? { equipos: sides } : {}) }];
+  }));
+  return { ...filtered, equipos, partidos };
 }
 function nextTeamId(stats) {
   let n = 1;
@@ -126,7 +152,9 @@ export function clearStats(key) {
 }
 export function renameEquipo(id, nombre) {
   const s = loadStats();
-  if (s.equipos[id]) { s.equipos[id].nombre = nombre; saveStats(s); }
+  const ids = id.startsWith("global:") ? Object.keys(s.equipos).filter(key => globalTeamId(s, key) === id) : [id];
+  for (const key of ids) if (s.equipos[key]) s.equipos[key].nombre = nombre;
+  saveStats(s);
   return s;
 }
 async function sha256Hex(s) {

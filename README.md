@@ -131,8 +131,8 @@ Para publicar esta versión, descomprime el ZIP y sube **el contenido** (no el Z
   original de cada partido. No se borra el histórico si falla la migración.
 - Los equipos se asignan **dentro de cada evento** por jugadores en común;
   de esta forma una alineación de entrenamiento no altera el equipo de liga.
-  En Global aparecen los equipos de cada evento por separado, no se fusionan
-  por tener jugadores comunes. Los identificadores del partido ya guardado
+  Desde v7.3, Global une equipos con el mismo nombre normalizado, no por
+  tener jugadores comunes. Los identificadores del partido ya guardado
   se conservan al reanalizarlo. Los partidos se deduplican por el contenido
   de ambos PBN; un partido antiguo equivalente se reemplaza al reanalizarlo.
 - **Borrar evento** borra solo los partidos del evento seleccionado; **Borrar
@@ -149,11 +149,10 @@ para GitHub Pages y recarga con **Ctrl+F5**.
   acumulada se reduce al equipo seleccionado. Al cambiar de evento se conserva
   el equipo si participa allí; si no, vuelve a Todos los equipos. El informe
   de manos siempre corresponde al último partido analizado.
-- En Global, cada equipo lleva la etiqueta de su evento; seleccionar uno
-  muestra solo sus partidos de ese evento, sin mezclar equipos de distintas
-  ligas por un nombre o jugadores parecidos. Para ver un equipo en otra liga,
-  selecciónalo allí. Los equipos antiguos sin datos de equipo no aparecen
-  como opción; puedes reanalizar esos partidos para incorporarlos.
+- Desde v7.3, Global muestra una sola opción por nombre de equipo y reúne sus
+  partidos de todos los eventos. Cada evento mantiene sus equipos separados.
+  Los equipos antiguos sin datos de equipo no aparecen como opción; puedes
+  reanalizar esos partidos para incorporarlos.
 - La hoja **Estadísticas** del Excel sigue ambos selectores; Resumen y hojas
   de manos siguen siendo las del partido analizado. No cambia el esquema del
   histórico v6 ni su migración desde v5, deduplicación o borrado por evento.
@@ -206,7 +205,7 @@ interpreta como marcador oficial entre dos equipos de cuatro.
 **Histórico.** Cada partido de mesa única guarda `mesaUnica: true` y una clave
 de evento `mesa-unica:<evento>`, visible como "Mesa única · <evento>". Se
 separa de la liga homónima de dos salas, incluidos equipos y asignación por
-plantilla. La vista Global muestra ambas series **etiquetadas por separado**;
+plantilla. Desde v7.3, Global une equipos homónimos también entre estas series;
 selecciona la serie de Evento para ver solo una. El equipo fantasma no tiene
 identidad ni jugadores y no entra en estadísticas. PBN y LIN equivalentes
 comparten huella de contenido y se sustituyen al reanalizar; para un partido
@@ -256,3 +255,30 @@ Publicación: subir los archivos *dentro* de este ZIP a GitHub, pulsar
   (abierta N)`, etc. Son asientos, no nombres atribuidos. Las estadísticas
   individuales no guardan esos marcadores para no mezclar personas de partidos
   diferentes; el balance y el detalle de manos sí se calculan.
+
+## Cambios v7.3 - equipo acumulado entre eventos
+
+- En **Global**, el filtro **Equipo** y las tablas (incluido Excel) reúnen los
+  equipos con el mismo nombre, ignorando mayúsculas, acentos y puntuación.
+  Cada jugador suma solo los partidos en que jugó; sus nombres siguen siendo
+  exactos. Las alineaciones pueden cambiar sin perder a los suplentes.
+- No se deduce el equipo del título del partido. Si tus históricos muestran
+  **Equipo 1**, **Equipo 3**, etc., entra en cada Evento y pulsa el lápiz para
+  poner **Galactus** en el equipo correspondiente. Después elige **Global** y
+  **Galactus**. Los nombres distintos no se unen automáticamente.
+- En Global, renombrar un equipo cambia el nombre en todos sus eventos. Para
+  cambiar solo uno, selecciona primero ese Evento.
+- No se borra ni se migra el histórico: la unión es una vista de los datos ya
+  guardados. No hace falta reanalizar. Los filtros por Evento, borrados y
+  deduplicación siguen usando las identidades originales.
+
+Actualización: quita `.txt` del ZIP, descomprime y sube **el contenido** a
+GitHub. Pulsa **COMMIT CHANGES**, espera 1-2 minutos y haz **Ctrl+F5**.
+
+**PDF del equipo.** Después de analizar, elige **Global** y **Galactus** (o
+el Evento para limitar el acumulado) y pulsa **Descargar PDF del equipo**.
+El PDF muestra los datos del partido actual y acumulados de todos los jugadores,
+incluidos los que no jugaron este partido, más el detalle de sus partidos.
+IMPs, Butler, manos, subasta y carteo se muestran en columnas separadas para
+este partido y acumulado. Es necesario elegir un equipo en el desplegable **Equipo** antes de descargar
+su PDF. El mismo flujo sirve para Galactus o cualquier otro equipo. Se genera en el navegador, sin enviar datos.

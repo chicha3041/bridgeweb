@@ -2,6 +2,7 @@ import { BridgeAnalyzer } from "./analyzer.js";
 import { DdsClient } from "./dds-client.js";
 import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions, teamOptions } from "./stats.js";
 import { renderReport, renderStats } from "./report.js";
+import { exportToPdf } from "./export-pdf.js";
 import { exportToExcel } from "./export-xlsx.js";
 import { readRoom, normalizeBridgedomEvent } from "./room-input.js";
 
@@ -20,7 +21,7 @@ function refreshSelector(preferred, preferredTeam = selectedTeam) {
   const teamSelector = $("team-filter");
   const teams = teamOptions(stats, selectedEvent);
   teamSelector.replaceChildren(new Option("Todos los equipos", ""),
-    ...teams.map(([id, team]) => new Option(selectedEvent ? team.name : `${team.name} (${team.event})`, id)));
+    ...teams.map(([id, team]) => new Option(team.name, id)));
   teamSelector.value = teams.some(([id]) => id === preferredTeam) ? preferredTeam : "";
   selectedTeam = teamSelector.value;
   teamSelector.disabled = !teams.length;
@@ -89,6 +90,7 @@ async function analyze() {
     lastAnalyzer = analyzer;
     refreshSelector((analyzer.singleTable ? "mesa-unica:" : "") + eventKey(analyzer.matchEvent));
     $("export-btn").disabled = false;
+    $("pdf-btn").disabled = false;
     setStatus("Análisis completo.");
     setProgress(1);
   } catch (err) {
@@ -111,6 +113,14 @@ $("export-btn").addEventListener("click", async () => {
     setStatus("Error al generar el Excel: " + (err && err.message || err));
   }
 });
+$("pdf-btn").addEventListener("click", async () => {
+  if (!lastAnalyzer) return;
+  setStatus("Generando PDF...");
+  try {
+    await exportToPdf(lastAnalyzer, loadStats(), selectedEvent, selectedTeam);
+    setStatus("PDF descargado.");
+  } catch (err) { setStatus("Error al generar el PDF: " + (err?.message || err)); }
+});
 $("clear-stats-btn").addEventListener("click", () => {
   if (confirm("¿Borrar todo el histórico de partidos guardado en este navegador?")) {
     clearStats();
@@ -119,6 +129,7 @@ $("clear-stats-btn").addEventListener("click", () => {
   }
 });
 
+$("report").addEventListener("teams-renamed", () => refreshSelector(selectedEvent, ""));
 $("event-filter").addEventListener("change", () => refreshSelector($("event-filter").value));
 $("team-filter").addEventListener("change", () => refreshSelector(selectedEvent, $("team-filter").value));
 $("clear-event-btn").addEventListener("click", () => {

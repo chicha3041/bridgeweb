@@ -3,7 +3,7 @@ import {
   filasInformePorEquipos, ordenarPorEquipos,
   calcularEstadisticasEquipos, filasJugadoresEquipo,
 } from "./analyzer.js";
-import { renameEquipo, filterSelection, eventLabel } from "./stats.js";
+import { renameEquipo, filterSelection } from "./stats.js";
 import { playViewHtml, initPlayViews, cardHtml } from "./playview.js";
 import { pyRound2 } from "./bridge-core.js";
 
@@ -134,9 +134,6 @@ function statsHtml(stats, selectedEvent, selectedTeam) {
   stats = filterSelection(stats, selectedEvent, selectedTeam);
   const { teams, legacyCount } = calcularEstadisticasEquipos(stats);
   const ids = Object.keys(teams);
-  const teamEvents = new Map();
-  if (!selectedEvent) for (const p of Object.values(stats.partidos || {}))
-    for (const side of Object.values(p.equipos || {})) if (side?.id) teamEvents.set(side.id, eventLabel(p.evento));
   let h = `<h3>Estadísticas acumuladas por equipo (${Object.keys(stats.partidos || {}).length} partido(s))</h3>`;
   if (!ids.length) {
     h += `<p><i>Sin histórico todavía.</i></p>`;
@@ -146,7 +143,7 @@ function statsHtml(stats, selectedEvent, selectedTeam) {
   for (const id of ids) {
     const t = teams[id];
     const butlerEq = t.manos ? Math.round((t.imps / t.manos) * 100) / 100 : 0;
-    h += `<div class="team-block"><h4 class="team-header">${esc(t.nombre)}${!selectedEvent ? ` <span class="small">(${esc(teamEvents.get(id) || "Sin evento")})</span>` : ""} ` +
+    h += `<div class="team-block"><h4 class="team-header">${esc(t.nombre)}${!selectedEvent ? ` <span class="small">(todos los eventos)</span>` : ""} ` +
       `<button type="button" class="team-rename small secondary" data-team="${esc(id)}" title="Renombrar equipo">✏️</button></h4>`;
     h += `<p class="team-summary"><b>${t.partidos}</b> partido(s) · <b>${t.manos}</b> manos · ` +
       `<b class="${t.imps < 0 ? "neg" : "pos"}">${Math.round(t.imps * 100) / 100} IMPs</b> · Butler equipo: <b>${butlerEq}</b> IMPs/mano · ` +
@@ -264,12 +261,11 @@ function bindRename(container, stats, selectedEvent, selectedTeam, analyzer = nu
   container.querySelectorAll(".team-rename").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.team;
-      const actual = (stats.equipos && stats.equipos[id] && stats.equipos[id].nombre) || "";
-      const nuevo = prompt("Nombre del equipo:", actual);
+      const actual = filterSelection(stats, selectedEvent).equipos?.[id]?.nombre || "";
+      const nuevo = prompt(selectedEvent ? "Nombre del equipo:" : "Nombre del equipo en todos los eventos:", actual);
       if (nuevo && nuevo.trim()) {
-        const s = renameEquipo(id, nuevo.trim());
-        if (analyzer) renderReport(analyzer, s, container, selectedEvent, selectedTeam);
-        else renderStats(s, container, selectedEvent, selectedTeam);
+        renameEquipo(id, nuevo.trim());
+        container.dispatchEvent(new CustomEvent("teams-renamed"));
       }
     });
   });

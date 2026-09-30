@@ -143,7 +143,7 @@ export async function exportToExcel(analyzer, stats, selectedEvent = "", selecte
     dataRow(wsE, ["Ámbito", selectedEvent ? (eventOptions(stats).find(([key]) => key === selectedEvent) || [null, selectedEvent])[1] : "Global - todos los eventos"]);
     dataRow(wsE, ["Equipo", selectedTeam ? (() => {
       const team = teamOptions(stats, selectedEvent).find(([id]) => id === selectedTeam)?.[1];
-      return team ? `${team.name}${selectedEvent ? "" : ` (${team.event})`}` : selectedTeam;
+      return team ? team.name : selectedTeam;
     })() : "Todos los equipos"]);
     wsE.addRow([]);
     ids.sort((a, b) => teams[b].imps - teams[a].imps);
