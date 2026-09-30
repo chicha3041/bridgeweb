@@ -20,7 +20,9 @@ function decodePbn(bytes) {
   // Bridgedom declara ISO-8859-1; conservar acentos sin corromper el evento.
   const header = new TextDecoder("ascii").decode(bytes.subarray(0, Math.min(bytes.length, 300)));
   const latin = /charset\s*=\s*(?:ISO-8859-1|latin-?1)/i.test(header);
-  return new TextDecoder(latin ? "iso-8859-1" : "utf-8").decode(bytes);
+  // Algunos PBN editados se guardan en UTF-8 sin actualizar la declaración.
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(bytes); }
+  catch { return new TextDecoder(latin ? "iso-8859-1" : "utf-8").decode(bytes); }
 }
 
 export async function readRoom(files, roomName) {
@@ -69,5 +71,5 @@ export async function readRoom(files, roomName) {
 
 export function normalizeBridgedomEvent(board) {
   if (!/^(?:www\.)?bridgedom\.com$/i.test(board.info.Site || "")) return;
-  if (board.info.Event) board.info.Event = board.info.Event.replace(/\s*[·•]\s*Mesa\s+\d+\s*$/i, "").trim();
+  if (board.info.Event) board.info.Event = board.info.Event.replace(/\s*(?:[·•�]|ï¿½|Â·)\s*Mesa\s+\d+\s*$/i, "").trim();
 }

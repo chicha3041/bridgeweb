@@ -167,18 +167,20 @@ export async function matchKey(analyzer) {
     [...analyzer.activeBoards].sort((a, b) => a - b).join(",");
   return (await sha256Hex(base)).slice(0, 24);
 }
-function asignarEquipo(stats, roster, eventoClave, excluidos = new Set()) {
+function asignarEquipo(stats, roster, eventoClave, excluidos = new Set(), nombre = "") {
   let best = null, bestOv = 0;
   const used = new Set(Object.values(stats.partidos).filter(p => p.eventoClave === eventoClave)
     .flatMap(p => Object.values(p.equipos || {}).map(e => e.id)));
   for (const [id, eq] of Object.entries(stats.equipos)) {
     if (!used.has(id) || excluidos.has(id)) continue;
+    if (nombre && teamKey(eq.nombre) === teamKey(nombre)) return id;
+    if (nombre && !/^Equipo \d+$/.test(eq.nombre || "")) continue;
     const ov = roster.filter(n => (eq.jugadores || []).includes(n)).length;
     if (ov > bestOv) { best = id; bestOv = ov; }
   }
   if (best) return best;
   const id = nextTeamId(stats);
-  stats.equipos[id] = { nombre: "Equipo " + id.slice(2), jugadores: [] };
+  stats.equipos[id] = { nombre: nombre || "Equipo " + id.slice(2), jugadores: [] };
   return id;
 }
 export async function registrarEstadisticas(analyzer) {
@@ -216,9 +218,11 @@ export async function registrarEstadisticas(analyzer) {
   for (const [lado, tn] of [["A", "Equipo A"], ["B", "Equipo B"]]) {
     const roster = [...analyzer.teamsRoster[tn]].filter(n => n && !analyzer.anonymousPlayers?.has(n)).sort();
     if (!roster.length) continue;
+    const nombre = analyzer.teamNames?.[tn]?.trim() || "";
     const id = previous?.eventoClave === eventoClave && previous.equipos?.[lado]?.id ||
-      asignarEquipo(stats, roster, eventoClave, new Set(Object.values(equiposPartido).map(side => side.id)));
+      asignarEquipo(stats, roster, eventoClave, new Set(Object.values(equiposPartido).map(side => side.id)), nombre);
     const eq = stats.equipos[id] || (stats.equipos[id] = { nombre: `Equipo ${id.slice(2)}`, jugadores: [] });
+    if (nombre) eq.nombre = nombre;
     eq.jugadores = [...new Set([...(eq.jugadores || []), ...roster])].sort();
     equiposPartido[lado] = { id, jugadores: roster, imps: analyzer.matchGrossGain[tn] || 0 };
   }

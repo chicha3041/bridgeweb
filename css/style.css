@@ -90,3 +90,7 @@ ul.best { margin: .3rem 0 1rem; }
 .event-controls { display: flex; align-items: center; gap: .65rem; margin: .75rem 0; flex-wrap: wrap; }
 .event-controls select { flex: 1 1 14rem; max-width: 100%; min-width: min(14rem, 100%); padding: .5rem; border: 1px solid #9ca9b8; border-radius: 6px; background: white; color: #222; font: inherit; }
 .event-controls select:focus-visible { outline: 3px solid #537eae; }
+
+.team-inputs { border: 1px solid #cfd4da; border-radius: 6px; margin: .8rem 0; padding: .6rem .8rem; }
+.team-inputs label { display: inline-flex; flex-direction: column; gap: .25rem; margin: .3rem 1rem .3rem 0; font-size: .9rem; }
+.team-inputs input { padding: .5rem; border: 1px solid #9ca9b8; border-radius: 4px; font: inherit; width: min(24rem, 100%); }

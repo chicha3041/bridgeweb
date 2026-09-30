@@ -13,7 +13,7 @@
 </head>
 <body>
 <header>
-  <h1>BridgeLab <span class="small">v7.3</span></h1>
+  <h1>BridgeLab <span class="small">v7.4</span></h1>
   <p>Analizador de partidos de bridge por equipos (BBO / MyHands). Sube PBN, LIN o ZIP de las salas, o una sola sala para mesa única y obtén el informe con puntos técnicos, IMPs atribuidos, butler individual y estadísticas acumuladas.</p>
 </header>
 
@@ -28,6 +28,12 @@
       <input type="file" id="file-closed" accept=".pbn,.PBN,.lin,.LIN,.zip,.ZIP,.txt" multiple>
     </div>
     <p class="small">En cada sala: un PBN/LIN, varios PBN (selección múltiple) o un ZIP con un PBN por mano. Para elegir varios PBN, selecciónalos juntos en el mismo diálogo. Una sola sala: mesa única contra el par. Los ZIP se procesan en tu navegador; no se suben a ningún servidor.</p>
+    <fieldset class="team-inputs">
+      <legend>Nombres de los equipos (opcional)</legend>
+      <label for="team-a-name">Equipo A: N/S abierta + E/O cerrada <input id="team-a-name" type="text" maxlength="120" placeholder="Nombre de este equipo"></label>
+      <label for="team-b-name">Equipo B: E/O abierta + N/S cerrada <input id="team-b-name" type="text" maxlength="120" placeholder="Nombre del rival"></label>
+      <p class="small">El título del partido no indica qué equipo ocupa cada asiento. Si el PBN incluye TeamNS/TeamEW, se leen automáticamente; estos campos permiten indicar o corregir los nombres. Revísalos al cambiar de partido. Sin nombres, se mantienen los equipos del histórico o se crean nombres genéricos.</p>
+    </fieldset>
     <div class="actions">
       <button id="analyze-btn">Analizar partido</button>
       <button id="export-btn" disabled>Descargar informe Excel</button>

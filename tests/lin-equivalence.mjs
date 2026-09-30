@@ -19,7 +19,7 @@ function toLin(boards) {
    return parts.map(([k,v])=> k+'|'+v+'|').join('');
  }).join('\n');
 }
-const pick = b => ({boardNum:b.boardNum,info:Object.fromEntries(["North","East","South","West","Event","Date"].map(k=>[k,b.info[k]])),vul:b.vul,dealer:b.dealer,hands:b.hands,contract:b.contract,auction:b.auction,play:b.play});
+const pick = b => ({boardNum:b.boardNum,info:Object.fromEntries(["North","East","South","West","Event","Date"].map(k=>[k,b.info[k] || ""])),vul:b.vul,dealer:b.dealer,hands:b.hands,contract:b.contract,auction:b.auction,play:b.play});
 for (const [i,path] of process.argv.slice(2).entries()) {
  const pbn = parsePBN(readFileSync(path,'utf8'));
  const lin = toLin(pbn);

@@ -6,6 +6,8 @@ import { exportToPdf } from "./export-pdf.js";
 import { exportToExcel } from "./export-xlsx.js";
 import { readRoom, normalizeBridgedomEvent } from "./room-input.js";
 
+import { readTeamNames } from "./team-input.js";
+
 const $ = (id) => document.getElementById(id);
 let lastAnalyzer = null;
 let selectedEvent = "";
@@ -56,6 +58,7 @@ async function analyze() {
     if (closed) rooms.push([closed, analyzer.singleTable ? "Abierta" : "Cerrada"]);
 
     const parsed = rooms.map(([input, room]) => [input.boards, room]);
+    analyzer.teamNames = readTeamNames(parsed, {"Equipo A": $("team-a-name").value, "Equipo B": $("team-b-name").value});
     const totalBoards = parsed.reduce((n, [boards]) => n + boards.length, 0);
     if (parsed.length === 2) {
       const [a, c] = parsed.map(([boards]) => boards.map(b => b.boardNum).join(","));
@@ -91,7 +94,8 @@ async function analyze() {
     refreshSelector((analyzer.singleTable ? "mesa-unica:" : "") + eventKey(analyzer.matchEvent));
     $("export-btn").disabled = false;
     $("pdf-btn").disabled = false;
-    setStatus("Análisis completo.");
+    setStatus(Object.values(analyzer.teamNames).every(Boolean) ? "Análisis completo." :
+      "Análisis completo. El PBN no identifica todos los equipos: indica sus nombres por asientos arriba o usa el lápiz del histórico.");
     setProgress(1);
   } catch (err) {
     console.error(err);
@@ -145,3 +149,7 @@ try { refreshSelector(""); } catch (err) {
   console.error(err);
   setStatus("No se pudo leer el histórico: " + err.message);
 }
+
+for (const id of ["file-open", "file-closed"]) $(id).addEventListener("change", () => {
+  $("team-a-name").value = ""; $("team-b-name").value = "";
+});

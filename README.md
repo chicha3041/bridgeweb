@@ -282,3 +282,24 @@ incluidos los que no jugaron este partido, más el detalle de sus partidos.
 IMPs, Butler, manos, subasta y carteo se muestran en columnas separadas para
 este partido y acumulado. Es necesario elegir un equipo en el desplegable **Equipo** antes de descargar
 su PDF. El mismo flujo sirve para Galactus o cualquier otro equipo. Se genera en el navegador, sin enviar datos.
+
+## Cambios v7.4 - nombres de equipo sin adivinar
+
+- Lee `TeamNS` y `TeamEW` de cada sala del PBN. Equipo A es N/S abierta y
+  E/O cerrada; Equipo B es E/O abierta y N/S cerrada. El orden del título
+  "A - B" no demuestra quién se sienta en cada posición.
+- Si faltan esas etiquetas, se pueden introducir los nombres antes de analizar.
+  Los campos se vacían al seleccionar archivos nuevos para no heredar el rival
+  del partido anterior. En mesa única, A = N/S y B = E/O de la sala cargada.
+- Global sigue agrupando los nombres iguales. No se modifica el histórico al
+  cargar la página. Reanalizar un partido con su identidad original actualiza
+  los nombres y no duplica el partido. También sigue disponible el lápiz.
+- Reconoce UTF-8 aunque un PBN editado conserve la declaración ISO-8859-1;
+  mantiene lectura Latin-1 de los ZIP originales. Quita el sufijo de mesa de
+  Bridgedom también cuando el separador está roto (carácter de sustitución).
+- Los nombres de jugador siguen siendo exactos: `Cassandra Nova` y
+  `CassandraNova` son dos identidades distintas, no se fusionan por suposición.
+
+No es necesario borrar el histórico. Si sus equipos ya están mal nombrados,
+se pueden corregir con el lápiz dentro del evento correspondiente. No se
+infiere automáticamente el nombre de un equipo solo por sus jugadores.
