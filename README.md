@@ -303,3 +303,24 @@ su PDF. El mismo flujo sirve para Galactus o cualquier otro equipo. Se genera en
 No es necesario borrar el histórico. Si sus equipos ya están mal nombrados,
 se pueden corregir con el lápiz dentro del evento correspondiente. No se
 infiere automáticamente el nombre de un equipo solo por sus jugadores.
+
+
+## Cambios v7.5 - ámbito del PDF visible y estable
+
+Analizar otro partido ya no cambia automáticamente el Evento al último partido.
+Se conserva Global (o el evento elegido) y el equipo elegido se conserva al cambiar
+de ámbito si el nombre coincide de forma inequívoca. Encima del informe se indica
+qué equipo, ámbito y cuántos partidos incluirá el PDF antes de descargarlo.
+Global agrupa equipos del mismo nombre entre eventos; un evento limita el acumulado.
+No se cambia ni borra el histórico. Los datos siguen siendo locales de cada navegador.
+El PDF requiere elegir un equipo y haber analizado el partido actual en esta sesión.
+
+Para publicar: sube los archivos de dentro del ZIP sobre los actuales, COMMIT CHANGES,
+espera la publicación de Pages y recarga con Ctrl+F5. No subas el ZIP al sitio.
+
+CassandraNova: se reconoce el alias confirmado Cassandra Nova, sin distinguir
+mayúsculas/minúsculas ni espacios, y se muestra siempre CassandraNova. El histórico
+existente se presenta unificado sin borrar partidos ni cambiar sus firmas o cifras.
+Al reanalizar los archivos originales se guarda esta forma canónica. No se fusionan
+otros jugadores automáticamente. Si dos variantes aparecen dentro del mismo partido,
+se detiene la lectura sin modificar los datos para evitar sumar dos asientos distintos.

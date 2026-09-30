@@ -1,3 +1,4 @@
+import { canonicalPlayerName } from "./player-names.js";
 // Port fiel de BridgeAnalyzer (analizador_bridgelab.py)
 import {
   PLAYER_NAMES, PLAYER_ABBR, SUIT_LETTERS, PENALTY,
@@ -143,7 +144,7 @@ export class BridgeAnalyzer {
   getPlayerName(board, role, roomName) {
     const name = String(board.info[PLAYER_NAMES[role][0] + PLAYER_NAMES[role].slice(1).toLowerCase()] ||
       board.info[PLAYER_NAMES[role]] || "").trim();
-    if (name) return name;
+    if (name) return canonicalPlayerName(name);
     // Etiqueta inequívoca por sala y asiento; NO es la identidad real del jugador.
     const seat = { N: "N", E: "E", S: "S", W: "O" }[PLAYER_ABBR[role]];
     const fallback = `Sin nombre (${roomName.toLowerCase()} ${seat})`;

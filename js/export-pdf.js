@@ -70,7 +70,7 @@ export async function exportToPdf(analyzer, stats, selectedEvent = "", selectedT
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page++) {
     doc.setPage(page).setFontSize(8).setTextColor(...gray);
-    doc.text("BridgeLab v7.4 | Histórico de este navegador", margin, 202);
+    doc.text("BridgeLab v7.5 | Histórico de este navegador", margin, 202);
     doc.text(page + " / " + pages, 284, 202, {align:"right"});
   }
   doc.save("bridgelab-partido-y-acumulado.pdf");

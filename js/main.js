@@ -1,6 +1,6 @@
 import { BridgeAnalyzer } from "./analyzer.js";
 import { DdsClient } from "./dds-client.js";
-import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions, teamOptions } from "./stats.js";
+import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions, teamOptions, resolveTeamSelection, filterSelection } from "./stats.js";
 import { renderReport, renderStats } from "./report.js";
 import { exportToPdf } from "./export-pdf.js";
 import { exportToExcel } from "./export-xlsx.js";
@@ -24,10 +24,16 @@ function refreshSelector(preferred, preferredTeam = selectedTeam) {
   const teams = teamOptions(stats, selectedEvent);
   teamSelector.replaceChildren(new Option("Todos los equipos", ""),
     ...teams.map(([id, team]) => new Option(team.name, id)));
-  teamSelector.value = teams.some(([id]) => id === preferredTeam) ? preferredTeam : "";
+  teamSelector.value = resolveTeamSelection(stats, selectedEvent, preferredTeam);
   selectedTeam = teamSelector.value;
   teamSelector.disabled = !teams.length;
   $("clear-event-btn").disabled = !selectedEvent;
+  $("pdf-btn").disabled = !lastAnalyzer || !selectedTeam;
+  const scope = filterSelection(stats, selectedEvent, selectedTeam);
+  const count = Object.keys(scope.partidos || {}).length;
+  $("pdf-scope").textContent = selectedTeam ?
+    `PDF de ${teamSelector.selectedOptions[0].textContent}: ${count} partido(s) · ${selector.selectedOptions[0].textContent}. Incluye el partido actual si pertenece a este ámbito.` :
+    "Elige un equipo para su PDF. Global acumula sus partidos de todos los eventos; un evento limita el acumulado.";
   if (lastAnalyzer) renderReport(lastAnalyzer, stats, $("report"), selectedEvent, selectedTeam);
   else renderStats(stats, $("report"), selectedEvent, selectedTeam);
 }
@@ -91,9 +97,9 @@ async function analyze() {
     analyzer.finalizeAnalysis();
     const stats = await registrarEstadisticas(analyzer);
     lastAnalyzer = analyzer;
-    refreshSelector((analyzer.singleTable ? "mesa-unica:" : "") + eventKey(analyzer.matchEvent));
+    // Analizar no cambia el ámbito que el usuario ha elegido.
+    refreshSelector(selectedEvent);
     $("export-btn").disabled = false;
-    $("pdf-btn").disabled = false;
     setStatus(Object.values(analyzer.teamNames).every(Boolean) ? "Análisis completo." :
       "Análisis completo. El PBN no identifica todos los equipos: indica sus nombres por asientos arriba o usa el lápiz del histórico.");
     setProgress(1);

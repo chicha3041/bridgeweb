@@ -1,4 +1,5 @@
 // Histórico local v6. El partido conserva su evento original y una clave de serie.
+import { normalizePlayerHistory } from "./player-names.js";
 import { pyRound2 } from "./bridge-core.js";
 const KEY = "bridgelab_stats";
 export const SIN_EVENTO = "sin-evento";
@@ -56,6 +57,17 @@ export function teamOptions(stats, selectedEvent = "") {
   }
   return [...options].sort((a, b) => a[1].name.localeCompare(b[1].name, "es") ||
     a[0].localeCompare(b[0]));
+}
+// Conserva el equipo elegido al cambiar entre Global y un evento.
+// Solo resuelve nombres inequívocos; no usa la plantilla para adivinar.
+export function resolveTeamSelection(stats, selectedEvent = "", preferredTeam = "") {
+  const options = teamOptions(stats, selectedEvent);
+  if (options.some(([id]) => id === preferredTeam)) return preferredTeam;
+  if (!preferredTeam) return "";
+  const key = preferredTeam.startsWith("global:") ? preferredTeam.slice(7) :
+    teamKey(stats.equipos?.[preferredTeam]?.nombre);
+  const matches = options.filter(([, team]) => teamKey(team.name) === key);
+  return key && matches.length === 1 ? matches[0][0] : "";
 }
 export function filterTeam(stats, selectedTeam = "") {
   if (!selectedTeam) return stats;
@@ -133,10 +145,10 @@ export function loadStats() {
   const raw = localStorage.getItem(KEY);
   if (!raw) return empty();
   const parsed = JSON.parse(raw);
-  if (parsed.version === 6) return parsed;
+  if (parsed.version === 6) return normalizePlayerHistory(parsed);
   // Se escribe solamente después de completar la migración; la versión antigua permanece
   // intacta si no puede leerse o si el navegador rechaza la escritura.
-  const s = migrate(parsed);
+  const s = normalizePlayerHistory(migrate(parsed));
   saveStats(s);
   return s;
 }

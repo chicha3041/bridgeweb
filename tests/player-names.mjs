@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {canonicalPlayerName,normalizePlayerHistory} from '../js/player-names.js';
+import {loadStats,filterSelection} from '../js/stats.js';
+import {calcularEstadisticasEquipos} from '../js/analyzer.js';
+for (const name of ['Cassandra Nova','cassandranova','cassandra nova','CASSANDRANOVA']) assert.equal(canonicalPlayerName(name),'CassandraNova');
+assert.notEqual(canonicalPlayerName('Ann A'),canonicalPlayerName('Anna'));
+const s={version:6,equipos:{eq1:{nombre:'Galactus',jugadores:['Cassandra Nova']},eq2:{nombre:'Galactus',jugadores:['cassandranova']}},partidos:{a:{firma:'a',manos:14,equipos:{B:{id:'eq1',jugadores:['Cassandra Nova']}},jugadores:{'Cassandra Nova':{manos:14,imps:-2,subasta:-10,carteo:0,errores_carteo:[]}}},b:{firma:'b',manos:14,equipos:{A:{id:'eq2',jugadores:['cassandranova']}},jugadores:{cassandranova:{manos:14,imps:3,subasta:0,carteo:0,errores_carteo:[]}}}}};
+let raw=JSON.stringify(s);globalThis.localStorage={getItem:()=>raw,setItem:(_,v)=>raw=v};
+let stats=loadStats();assert.equal(raw,JSON.stringify(s));assert.equal(stats.partidos.a.firma,'a');let t=calcularEstadisticasEquipos(filterSelection(stats,'','global:galactus')).teams['global:galactus'];assert.equal(Object.keys(t.jugadores).length,1);assert.equal(t.jugadores.CassandraNova.partidos,2);assert.equal(t.jugadores.CassandraNova.manos,28);assert.equal(t.jugadores.CassandraNova.imps,1);
+let bad=structuredClone(s);bad.partidos.a.jugadores.CassandraNova=bad.partidos.a.jugadores['Cassandra Nova'];assert.throws(()=>normalizePlayerHistory(bad),/Dos variantes/);
+console.log('OK: confirmed alias only, historical merge across matches, no read mutation, scores/signatures preserved, same-match collision blocked.');

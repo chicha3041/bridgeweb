@@ -13,7 +13,7 @@
 </head>
 <body>
 <header>
-  <h1>BridgeLab <span class="small">v7.4</span></h1>
+  <h1>BridgeLab <span class="small">v7.5</span></h1>
   <p>Analizador de partidos de bridge por equipos (BBO / MyHands). Sube PBN, LIN o ZIP de las salas, o una sola sala para mesa única y obtén el informe con puntos técnicos, IMPs atribuidos, butler individual y estadísticas acumuladas.</p>
 </header>
 
@@ -42,6 +42,7 @@
       <button id="clear-stats-btn" class="secondary">Borrar todo el histórico</button>
     </div>
     <div class="event-controls"><label for="event-filter"><b>Evento:</b></label> <select id="event-filter"><option value="">Global - todos los eventos</option></select> <label for="team-filter"><b>Equipo:</b></label> <select id="team-filter"><option value="">Todos los equipos</option></select></div>
+    <p id="pdf-scope" class="small" aria-live="polite"></p>
     <progress id="progress" value="0" max="1"></progress>
     <p id="status"></p>
   </section>

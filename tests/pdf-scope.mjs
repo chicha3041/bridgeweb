@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {filterSelection,resolveTeamSelection} from '../js/stats.js';
+import {calcularEstadisticasEquipos} from '../js/analyzer.js';
+const player=()=>({manos:14,imps:1,subasta:0,carteo:0,errores_carteo:[]});
+const stats={version:6,equipos:{eq1:{nombre:'Galactus'},eq2:{nombre:'GALACTUS'},eq3:{nombre:'Other'}},partidos:{a:{eventoClave:'first',manos:14,equipos:{B:{id:'eq1',jugadores:['chicha','ivd','chiquinquira','CassandraNova']}},jugadores:Object.fromEntries(['chicha','ivd','chiquinquira','CassandraNova'].map(n=>[n,player()]))},b:{eventoClave:'second',manos:14,equipos:{A:{id:'eq2',jugadores:['Myr_AC','Pikachu','chiquinquira','CassandraNova']}},jugadores:Object.fromEntries(['Myr_AC','Pikachu','chiquinquira','CassandraNova'].map(n=>[n,player()]))}}};
+assert.equal(resolveTeamSelection(stats,'','eq1'),'global:galactus');
+assert.equal(resolveTeamSelection(stats,'second','global:galactus'),'eq2');
+assert.equal(resolveTeamSelection(stats,'first','eq2'),'eq1');
+assert.equal(resolveTeamSelection(stats,'second','eq3'),'');
+assert.equal(resolveTeamSelection(stats,'',''),'');
+let t=calcularEstadisticasEquipos(filterSelection(stats,'','global:galactus')).teams['global:galactus'];
+assert.equal(t.partidos,2);assert.equal(t.manos,28);assert.equal(Object.keys(t.jugadores).length,6);assert.equal(t.jugadores.CassandraNova.partidos,2);
+t=calcularEstadisticasEquipos(filterSelection(stats,'second','eq2')).teams.eq2;assert.equal(t.partidos,1);assert.equal(t.manos,14);assert.equal(Object.keys(t.jugadores).length,4);
+console.log('OK: PDF scope selection, Global/event name mapping, rotating six-player roster, per-event isolation.');
