@@ -59,6 +59,7 @@ export async function exportToExcel(analyzer, stats, selectedEvent = "", selecte
   dataRow(ws, ["Evento", analyzer.matchEvent || "-"]);
   dataRow(ws, ["Fecha", analyzer.matchDate || "-"]);
   dataRow(ws, ["Manos", boards.length]);
+  if (analyzer.anonymousPlayers?.size) dataRow(ws, ["Jugadores sin nombre", "Etiquetas por sala y asiento; no se acumulan en estadísticas"]);
   ws.addRow([]);
   const ra = analyzer.matchGrossGain["Equipo A"], rb = analyzer.matchGrossGain["Equipo B"];
   teamRow(ws, "BALANCE DEL PARTIDO", 5);
@@ -83,7 +84,7 @@ export async function exportToExcel(analyzer, stats, selectedEvent = "", selecte
   ws.addRow([]);
   for (const tn of ["Equipo A", "Equipo B"]) {
     let bT = [null, -1e9], bC = [null, -1e9];
-    for (const n of [...analyzer.teamsRoster[tn]]) {
+    for (const n of [...analyzer.teamsRoster[tn]].filter(n => !analyzer.anonymousPlayers?.has(n))) {
       const d = analyzer.playersData[n];
       if (!d) continue;
       const tot = Object.values(d.bidding).reduce((a, b) => a + b, 0) + Object.values(d.play).reduce((a, b) => a + b, 0);

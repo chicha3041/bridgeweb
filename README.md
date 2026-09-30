@@ -240,3 +240,19 @@ y recarga con **Ctrl+F5**. Esta entrega no se ha publicado.
 
 Publicación: subir los archivos *dentro* de este ZIP a GitHub, pulsar
 **Commit changes**, esperar 1-2 minutos y recargar con **Ctrl+F5**.
+
+## Cambios v7.2 - descarga ZIP de Bridgedom
+
+- En cada campo de sala puedes elegir el ZIP completo de Bridgedom, o seleccionar
+  varios PBN a la vez (Ctrl/clic o selección múltiple en el diálogo), sin mezclar
+  ZIP con otros archivos en el mismo campo. También
+  siguen funcionando el PBN o LIN individual y la mesa única.
+- Los PBN de cada sala se ordenan por `[Board "N"]`; se detectan manos repetidas,
+  faltantes entre salas y eventos incompatibles antes de analizar. Los ZIP se
+  abren en el navegador; no se envían a ningún servidor.
+- Bridgedom exporta eventos terminados en `· Mesa 1`/`· Mesa 2`: se elimina
+  únicamente ese sufijo para que las salas del mismo partido compartan evento.
+- Si el PBN no identifica a los jugadores, el informe muestra `Sin nombre
+  (abierta N)`, etc. Son asientos, no nombres atribuidos. Las estadísticas
+  individuales no guardan esos marcadores para no mezclar personas de partidos
+  diferentes; el balance y el detalle de manos sí se calculan.

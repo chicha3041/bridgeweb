@@ -1,11 +1,9 @@
-import { parsePBN } from "./pbn.js";
-import { parseLIN } from "./lin.js";
-import { detectFormat } from "./format.js";
 import { BridgeAnalyzer } from "./analyzer.js";
 import { DdsClient } from "./dds-client.js";
 import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions, teamOptions } from "./stats.js";
 import { renderReport, renderStats } from "./report.js";
 import { exportToExcel } from "./export-xlsx.js";
+import { readRoom, normalizeBridgedomEvent } from "./room-input.js";
 
 const $ = (id) => document.getElementById(id);
 let lastAnalyzer = null;
@@ -35,42 +33,35 @@ function refreshSelector(preferred, preferredTeam = selectedTeam) {
 function setStatus(msg) { $("status").textContent = msg; }
 function setProgress(f) { $("progress").value = f; }
 
-async function readFile(input) {
-  const f = input.files && input.files[0];
-  if (!f) return null;
-  return { name: f.name, text: await f.text() };
-}
-
 async function analyze() {
-  const open = await readFile($("file-open"));
-  const closed = await readFile($("file-closed"));
-  if (!open && !closed) { setStatus("Sube al menos un archivo PBN o LIN."); return; }
+  const openInput = $("file-open");
+  const closedInput = $("file-closed");
+  if (!openInput.files.length && !closedInput.files.length) { setStatus("Sube al menos un archivo PBN o LIN."); return; }
 
   $("analyze-btn").disabled = true;
   $("report").innerHTML = "";
   try {
+    setStatus("Leyendo archivos y manos...");
+    const open = await readRoom(openInput.files, "Abierta");
+    const closed = await readRoom(closedInput.files, "Cerrada");
     setStatus("Cargando motor de análisis (DDS/WASM)...");
     const dds = new DdsClient();
     const analyzer = new BridgeAnalyzer(dds);
-    analyzer.sourceFiles = [open, closed].filter(Boolean).map(f => f.name);
+    analyzer.sourceFiles = [open, closed].filter(Boolean).flatMap(f => f.sourceNames);
     analyzer.singleTable = !(open && closed);
 
     const rooms = [];
     if (open) rooms.push([open, "Abierta"]);
     if (closed) rooms.push([closed, analyzer.singleTable ? "Abierta" : "Cerrada"]);
 
-    let totalBoards = 0;
-    const parsed = [];
-    for (const [file, room] of rooms) {
-      const content = file.text.replace(/^\uFEFF/, "").trimStart();
-      const format = detectFormat(content);
-      const boards = format === "pbn" ? parsePBN(content) :
-        format === "lin" ? parseLIN(content) : [];
-      if (!boards.length) throw new Error(`No se encontraron manos válidas en ${file.name}. Comprueba el contenido PBN/LIN.`);
-      totalBoards += boards.length;
-      parsed.push([boards, room]);
+    const parsed = rooms.map(([input, room]) => [input.boards, room]);
+    const totalBoards = parsed.reduce((n, [boards]) => n + boards.length, 0);
+    if (parsed.length === 2) {
+      const [a, c] = parsed.map(([boards]) => boards.map(b => b.boardNum).join(","));
+      if (a !== c) throw new Error("Las salas no tienen las mismas manos. Revisa los archivos de cada sala.");
     }
-
+    // Bridgedom distingue la mesa en Event; ambas salas pertenecen al mismo partido.
+    for (const [boards] of parsed) for (const b of boards) normalizeBridgedomEvent(b);
     // Evitar que un archivo con distintos eventos mezcle ligas silenciosamente.
     const eventKeys = new Set(parsed.flatMap(([boards]) => boards.map(b => eventKey(b.info.Event))));
     if (eventKeys.size > 1) throw new Error("Los PBN contienen eventos diferentes. Sepáralos por evento antes de analizarlos.");
@@ -81,7 +72,8 @@ async function analyze() {
     analyzer.matchIdentity = (analyzer.singleTable ? "MESA-UNICA\n" : "DOS-SALAS\n") +
       parsed.map(([boards]) => JSON.stringify(boards.map(canonical))).sort().join("\n---SALA---\n");
     // Identidad v6.1: permite sustituir el partido guardado antes de esta actualización.
-    analyzer.legacyMatchIdentity = [open,closed].filter(Boolean).map(f=>f.text).sort().join("\n---SALA---\n");
+    analyzer.legacyMatchIdentity = [open,closed].filter(Boolean).every(f => f.legacyText != null) ?
+      [open,closed].filter(Boolean).map(f=>f.legacyText).sort().join("\n---SALA---\n") : null;
     let done = 0;
     for (const [boards, room] of parsed) {
       for (const b of boards) {

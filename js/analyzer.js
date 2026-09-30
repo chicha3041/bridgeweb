@@ -137,11 +137,18 @@ export class BridgeAnalyzer {
     this.matchEvent = null;
     this.sourceFiles = [];
     this.singleTable = false;
+    this.anonymousPlayers = new Set();
   }
 
-  getPlayerName(board, role) {
-    const name = board.info[PLAYER_NAMES[role][0] + PLAYER_NAMES[role].slice(1).toLowerCase()] || board.info[PLAYER_NAMES[role]] || PLAYER_NAMES[role];
-    return String(name).trim();
+  getPlayerName(board, role, roomName) {
+    const name = String(board.info[PLAYER_NAMES[role][0] + PLAYER_NAMES[role].slice(1).toLowerCase()] ||
+      board.info[PLAYER_NAMES[role]] || "").trim();
+    if (name) return name;
+    // Etiqueta inequívoca por sala y asiento; NO es la identidad real del jugador.
+    const seat = { N: "N", E: "E", S: "S", W: "O" }[PLAYER_ABBR[role]];
+    const fallback = `Sin nombre (${roomName.toLowerCase()} ${seat})`;
+    this.anonymousPlayers.add(fallback);
+    return fallback;
   }
 
   ensurePlayer(name) {
@@ -216,7 +223,7 @@ export class BridgeAnalyzer {
 
     const playersInfo = [];
     for (const role of [0, 1, 2, 3]) {
-      const name = this.getPlayerName(board, role);
+      const name = this.getPlayerName(board, role, roomName);
       if (!name) continue;
       this.ensurePlayer(name);
       const isA = (roomName.toLowerCase() === "abierta" && isNS(role)) ||

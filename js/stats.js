@@ -158,7 +158,7 @@ export async function registrarEstadisticas(analyzer) {
   const eventoClave = (analyzer.singleTable ? "mesa-unica:" : "") + eventKey(analyzer.matchEvent);
   const jugadores = {};
   for (const [name, d] of Object.entries(analyzer.playersData)) {
-    if (!name) continue;
+    if (!name || analyzer.anonymousPlayers?.has(name)) continue;
     const manos = new Set([...Object.keys(d.bidding), ...Object.keys(d.play)]);
     jugadores[name] = {
       subasta: Object.values(d.bidding).reduce((a, b) => a + b, 0),
@@ -186,7 +186,7 @@ export async function registrarEstadisticas(analyzer) {
   const previous = stats.partidos[replaceKey];
   const equiposPartido = {};
   for (const [lado, tn] of [["A", "Equipo A"], ["B", "Equipo B"]]) {
-    const roster = [...analyzer.teamsRoster[tn]].filter(Boolean).sort();
+    const roster = [...analyzer.teamsRoster[tn]].filter(n => n && !analyzer.anonymousPlayers?.has(n)).sort();
     if (!roster.length) continue;
     const id = previous?.eventoClave === eventoClave && previous.equipos?.[lado]?.id ||
       asignarEquipo(stats, roster, eventoClave, new Set(Object.values(equiposPartido).map(side => side.id)));

@@ -183,6 +183,8 @@ export function renderReport(analyzer, stats, container, selectedEvent = "", sel
   let h = `<h2>Informe ${analyzer.singleTable ? "de mesa única (contra el par)" : "del partido"}</h2>`;
   h += `<p><b>Evento:</b> ${esc(analyzer.matchEvent || "-")} &nbsp; <b>Fecha:</b> ${esc(analyzer.matchDate || "-")} &nbsp; <b>Manos:</b> ${boards.length}</p>`;
 
+  if (analyzer.anonymousPlayers?.size) h += `<p class="small"><b>Jugadores sin nombre:</b> se muestran por sala y asiento (N/E/S/O). No son identidades reales y no se acumulan en las estadísticas individuales.</p>`;
+
   // Tabla técnica del partido, agrupada por equipos
   h += `<h3>Puntos técnicos del partido</h3><table><thead><tr><th>Jugador</th><th>Subasta</th><th>Carteo</th><th>Total Pts</th><th>IMPs</th></tr></thead><tbody>`;
   for (const g of filasInformePorEquipos(analyzer)) {
@@ -202,7 +204,7 @@ export function renderReport(analyzer, stats, container, selectedEvent = "", sel
   h += `<h3>Mejores del partido</h3><ul class="best">`;
   for (const tn of ["Equipo A", "Equipo B"]) {
     let bT = [null, -1e9], bC = [null, -1e9];
-    for (const n of [...analyzer.teamsRoster[tn]]) {
+    for (const n of [...analyzer.teamsRoster[tn]].filter(n => !analyzer.anonymousPlayers?.has(n))) {
       const d = analyzer.playersData[n];
       if (!d) continue;
       const tot = Object.values(d.bidding).reduce((a, b) => a + b, 0) + Object.values(d.play).reduce((a, b) => a + b, 0);
@@ -213,6 +215,7 @@ export function renderReport(analyzer, stats, container, selectedEvent = "", sel
     h += `<li><b>${tn}:</b> mejor técnico <b>${esc(bT[0] || "-")}</b>${bT[0] ? ` (${bT[1]} pts)` : ""} · mejor competitivo <b>${esc(bC[0] || "-")}</b>${bC[0] ? ` (${pyRound2(bC[1])} IMPs)` : ""}</li>`;
   }
   h += `</ul>`;
+  if (analyzer.anonymousPlayers?.size) h += `<p class="small">Sin nombres reales no se adjudica un mejor jugador; los asientos anónimos se excluyen de esta clasificación.</p>`;
 
   // Balance
   const ra = analyzer.matchGrossGain["Equipo A"], rb = analyzer.matchGrossGain["Equipo B"];
