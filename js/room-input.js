@@ -71,5 +71,5 @@ export async function readRoom(files, roomName) {
 
 export function normalizeBridgedomEvent(board) {
   if (!/^(?:www\.)?bridgedom\.com$/i.test(board.info.Site || "")) return;
-  if (board.info.Event) board.info.Event = board.info.Event.replace(/\s*(?:[·•�]|ï¿½|Â·)\s*Mesa\s+\d+\s*$/i, "").trim();
+  if (board.info.Event) board.info.Event = board.info.Event.replace(/(?:\s*(?:[·•�]|ï¿½|Â·)\s*(?:Mesa|Mano)\s+\d+\s*)+$/i, "").trim();
 }

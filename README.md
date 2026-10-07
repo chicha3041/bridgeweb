@@ -1,3 +1,7 @@
+## v7.6
+
+Acepta el nuevo PBN de Bridgedom: elimina los sufijos de mesa y mano del evento para analizar juntas las dos salas. No cambia repartos, nombres, subasta, carteo ni criterios de puntuación.
+
 # BridgeLab Web
 
 Analizador de partidos de bridge por equipos, directamente en el navegador.

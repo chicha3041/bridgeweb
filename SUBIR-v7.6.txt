@@ -1,0 +1,11 @@
+BridgeLab v7.6
+
+1. Quita .txt del nombre del archivo, dejando .zip.
+2. Descomprime el ZIP.
+3. Sube index.html, README.md y las carpetas js y css al repositorio bridgeweb, reemplazando los archivos del mismo nombre. No subas el ZIP.
+4. Pulsa COMMIT CHANGES.
+5. Espera a que GitHub Pages publique y recarga con Ctrl+F5.
+
+Esta versión admite el nuevo PBN de Bridgedom, cuyos eventos incluyen Mesa y Mano. No modifica los criterios de puntuación ni borra el histórico.
+
+Los dos archivos de Alkiba - Galactus se han probado juntos en Chrome con el motor DDS: 14 manos y análisis completo. Los PBN no incluyen fecha, competición ni TeamNS/TeamEW. Indica los equipos por asientos en los campos de la web. Los archivos privados del partido no están incluidos en este ZIP.
