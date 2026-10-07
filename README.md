@@ -25,7 +25,7 @@ o MyHands) y obtienes:
   equipo agrupa a todos sus jugadores (aunque no jueguen todos los partidos)
   con butler, tendencias y desglose por partido
 
-Todo el cálculo ocurre en tu dispositivo (motor DDS de Bo Haglund compilado a
+Todo el cálculo ocurre en tu dispositivo (motor DDS de  Bo Haglund compilado a
 WebAssembly). Ningún archivo se sube a ningún servidor.
 
 ## Cómo publicarlo gratis en GitHub Pages
