@@ -1,3 +1,18 @@
+## v7.8 (Firefox)
+
+- Estado real de almacenamiento persistente y botón Proteger almacenamiento (puede pedir permiso en Firefox).
+- Guía para conservar datos del sitio al cerrar. Persistencia no impide un borrado voluntario o configurado. La web no puede diagnosticar si el histórico vacío es una primera visita, otro perfil o un borrado.
+- Copia automática opcional tras cada análisis: un nuevo JSON en Descargas, sin sobrescribir. Si mantienes borrado al cerrar, importa la última copia al abrir. No hay acceso automático a ficheros del disco en Firefox.
+- Histórico y datos privados siguen sin servidor ni cuenta.
+
+## v7.7
+
+- Guardar copia del histórico descarga un JSON con todos los partidos, equipos y eventos. Guárdalo después de analizar partidos, fuera del navegador.
+- Importar copia JSON valida los datos y pide confirmación: sustituye, no mezcla. Si hay partidos actuales, descarga una copia anterior antes de importar.
+- El PDF del equipo puede descargarse también desde un histórico importado, sin volver a analizar. En ese caso muestra solo el acumulado, sin atribuir un partido actual. Pie actualizado a v7.7.
+- Cerrar un navegador normal no borra localStorage; la navegación privada, borrar datos o cambiar navegador/dispositivo pueden dejar el histórico vacío. No se recuperan partidos ya perdidos: vuelve a analizar los PBN originales.
+- Las copias contienen nombres y resultados. No se envían a ningún servidor. Conserva copias periódicas.
+
 ## v7.6
 
 Acepta el nuevo PBN de Bridgedom: elimina los sufijos de mesa y mano del evento para analizar juntas las dos salas. No cambia repartos, nombres, subasta, carteo ni criterios de puntuación.

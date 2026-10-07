@@ -13,7 +13,7 @@
 </head>
 <body>
 <header>
-  <h1>BridgeLab <span class="small">v7.6</span></h1>
+  <h1>BridgeLab <span class="small">v7.8</span></h1>
   <p>Analizador de partidos de bridge por equipos (BBO / MyHands). Sube PBN, LIN o ZIP de las salas, o una sola sala para mesa única y obtén el informe con puntos técnicos, IMPs atribuidos, butler individual y estadísticas acumuladas.</p>
 </header>
 
@@ -41,6 +41,32 @@
       <button id="clear-event-btn" class="secondary" disabled>Borrar evento</button>
       <button id="clear-stats-btn" class="secondary">Borrar todo el histórico</button>
     </div>
+    <fieldset class="history-backup">
+      <legend>Conservar el histórico en Firefox</legend>
+      <p id="storage-status" role="status" aria-live="polite">Comprobando almacenamiento...</p>
+      <button id="storage-protect-btn" type="button">Proteger almacenamiento</button>
+      <p id="storage-permission-result" role="status" aria-live="polite"></p>
+      <details>
+        <summary>Si desaparece al cerrar el navegador</summary>
+        <p>En Firefox, revisa Ajustes → Privacidad y seguridad. En Cookies y datos del sitio, si borras los datos al cerrar, añade una excepción «Permitir» para https://chicha3041.github.io. Si usas Historial → Limpiar el historial cuando Firefox se cierre, revisa su Configuración y evita borrar cookies y datos de sitios, y también los ajustes del sitio (pueden eliminar la excepción). Los nombres pueden variar según la versión.</p>
+        <p>Usa una ventana normal y el mismo navegador/dispositivo. La web no puede leer ni cambiar estos ajustes. Cerrar normalmente debería conservar el histórico; si borras datos, ningún permiso de almacenamiento lo garantiza.</p>
+        <p>Firefox no permite que esta web abra y sobrescriba sola un fichero del disco. Si mantienes el borrado al cerrar, guarda copias y elige la última en «Importar copia JSON» al volver.</p>
+      </details>
+    </fieldset>
+    <fieldset class="history-backup">
+      <legend>Copia del histórico</legend>
+      <label class="auto-backup"><input id="auto-backup-check" type="checkbox"> Descargar copia automáticamente después de cada análisis</label>
+      <p class="small">Opcional: descarga un JSON nuevo, no sobrescribe el anterior. Puede aparecer un aviso de descarga. Si borras los datos del navegador, también se olvida esta opción. No sustituye al permiso de conservar datos.</p>
+      <div class="backup-actions">
+        <button id="backup-export-btn" type="button">Guardar copia del histórico</button>
+        <label for="backup-import-file">Importar copia JSON
+          <input id="backup-import-file" type="file" accept=".json,application/json">
+        </label>
+      </div>
+      <p class="small">La copia incluye todos los equipos y eventos, no solo el filtro elegido. Guárdala después de añadir partidos. Importar sustituye el histórico de este navegador; no mezcla copias.</p>
+      <p class="small">El histórico se guarda en este navegador y dispositivo. Cerrar una ventana normal no debería borrarlo; el modo privado o la limpieza de datos sí pueden hacerlo. Si ya se perdió, vuelve a analizar los PBN: una copia nueva no recupera partidos desaparecidos.</p>
+      <p id="backup-status" role="status" aria-live="polite"></p>
+    </fieldset>
     <div class="event-controls"><label for="event-filter"><b>Evento:</b></label> <select id="event-filter"><option value="">Global - todos los eventos</option></select> <label for="team-filter"><b>Equipo:</b></label> <select id="team-filter"><option value="">Todos los equipos</option></select></div>
     <p id="pdf-scope" class="small" aria-live="polite"></p>
     <progress id="progress" value="0" max="1"></progress>

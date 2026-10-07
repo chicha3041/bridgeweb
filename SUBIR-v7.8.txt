@@ -1,0 +1,9 @@
+BridgeLab v7.8 - Firefox
+
+Quita .txt, descomprime, sube los archivos y carpetas del interior reemplazando los mismos nombres y pulsa COMMIT CHANGES. Espera a Pages y Ctrl+F5.
+
+Para no importar cada día, configura Firefox para conservar datos de https://chicha3041.github.io. La web muestra una guía y ofrece Proteger almacenamiento; este permiso no evita borrar datos al cerrar.
+
+Puedes activar Descargar copia automáticamente después de cada análisis: guarda un JSON nuevo en Descargas. Firefox no permite abrir o sobrescribir ese fichero solo. Si borras datos al cerrar, tendrás que importar la última copia al volver; la opción automática también se olvida.
+
+No hay servidor ni cuenta. La copia contiene todos los equipos y eventos. Los partidos ya perdidos se reconstruyen volviendo a analizar sus PBN.

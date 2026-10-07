@@ -7,6 +7,7 @@ import { exportToExcel } from "./export-xlsx.js";
 import { readRoom, normalizeBridgedomEvent } from "./room-input.js";
 
 import { readTeamNames } from "./team-input.js";
+import * as backupModule from "./history-backup.js";
 
 const $ = (id) => document.getElementById(id);
 let lastAnalyzer = null;
@@ -28,7 +29,7 @@ function refreshSelector(preferred, preferredTeam = selectedTeam) {
   selectedTeam = teamSelector.value;
   teamSelector.disabled = !teams.length;
   $("clear-event-btn").disabled = !selectedEvent;
-  $("pdf-btn").disabled = !lastAnalyzer || !selectedTeam;
+  $("pdf-btn").disabled = !selectedTeam;
   const scope = filterSelection(stats, selectedEvent, selectedTeam);
   const count = Object.keys(scope.partidos || {}).length;
   $("pdf-scope").textContent = selectedTeam ?
@@ -96,6 +97,11 @@ async function analyze() {
     setStatus("Calculando atribución de IMPs...");
     analyzer.finalizeAnalysis();
     const stats = await registrarEstadisticas(analyzer);
+    if ($("auto-backup-check").checked) {
+      try { backupModule.downloadBackup(stats);backupStatus("Copia automática descargada tras este análisis. Conserva la última copia; el navegador puede pedir permiso de descarga."); }
+      catch(err){backupStatus("El análisis está guardado aquí, pero no se pudo descargar la copia: "+err.message);}
+    }
+
     lastAnalyzer = analyzer;
     // Analizar no cambia el ámbito que el usuario ha elegido.
     refreshSelector(selectedEvent);
@@ -124,7 +130,6 @@ $("export-btn").addEventListener("click", async () => {
   }
 });
 $("pdf-btn").addEventListener("click", async () => {
-  if (!lastAnalyzer) return;
   setStatus("Generando PDF...");
   try {
     await exportToPdf(lastAnalyzer, loadStats(), selectedEvent, selectedTeam);
@@ -159,3 +164,44 @@ try { refreshSelector(""); } catch (err) {
 for (const id of ["file-open", "file-closed"]) $(id).addEventListener("change", () => {
   $("team-a-name").value = ""; $("team-b-name").value = "";
 });
+
+// El informe del último análisis no debe acompañar un histórico importado distinto.
+const backupStatus = msg => { $('backup-status').textContent=msg; };
+$('backup-export-btn').addEventListener('click',()=>{
+  try { const stats=loadStats();backupModule.downloadBackup(stats);backupStatus(`Copia descargada: ${Object.keys(stats.partidos).length} partido(s), todos los equipos y eventos. Guárdala fuera del navegador.`); }
+  catch(err){backupStatus('No se pudo guardar la copia: '+err.message);}
+});
+$('backup-import-file').addEventListener('change',async()=>{
+  const input=$('backup-import-file'),file=input.files[0];if(!file)return;
+  try {
+    if(file.size>20*1024*1024)throw new Error('Copia demasiado grande (máximo 20 MB).');
+    const text=await file.text(),incoming=backupModule.parseBackup(text);
+    const current=loadStats(),oldCount=Object.keys(current.partidos).length,newCount=Object.keys(incoming.partidos).length;
+    if(!confirm(`Importar ${newCount} partido(s) de esta copia sustituirá los ${oldCount} partido(s) guardados aquí. No se mezclan. ${oldCount?'Antes se descargará una copia del histórico actual. ':''}¿Continuar?`)){backupStatus('Importación cancelada. El histórico no se ha cambiado.');return;}
+    if(oldCount)backupModule.downloadBackup(current,'-antes-de-importar');
+    backupModule.importBackup(text);lastAnalyzer=null;$('export-btn').disabled=true;
+    refreshSelector('','');setProgress(0);setStatus('Histórico importado. Vuelve a analizar los PBN para generar el informe del partido.');
+    backupStatus(`Importados ${newCount} partido(s). Elige el equipo para ver su acumulado. ${oldCount?'Conserva también la copia anterior descargada.':''}`);
+  }catch(err){backupStatus('No se pudo importar: '+err.message);}
+  finally{input.value='';}
+});
+
+async function updateStorageStatus() {
+  const count=Object.keys(loadStats().partidos).length;
+  let protectedStorage=false;try{protectedStorage=await navigator.storage?.persisted?.()}catch{}
+  $('storage-status').textContent=`Histórico en este navegador: ${count} partido(s). ` +
+    (protectedStorage ? 'Almacenamiento persistente concedido: protege frente a limpieza automática por espacio, NO frente a borrar datos al cerrar.' : 'Sin protección persistente confirmada. Puedes solicitarla abajo; no evita un borrado configurado al cerrar.') +
+    (count ? '' : ' No hay partidos guardados aquí. Puede ser una primera visita, otro navegador/dispositivo o datos borrados; la web no puede distinguirlo.');
+}
+$('storage-protect-btn').addEventListener('click',async()=>{
+ try{if(!navigator.storage?.persist)throw new Error('Este navegador no permite solicitar almacenamiento persistente');
+ const granted=await navigator.storage.persist();await updateStorageStatus();
+ $('storage-permission-result').textContent=granted?'Permiso concedido. Revisa también el ajuste de borrar datos al cerrar.':'Permiso no concedido. El histórico sigue local; conserva copias JSON.';
+ }catch(err){$('storage-permission-result').textContent=err.message;}
+});
+try{$('auto-backup-check').checked=localStorage.getItem('bridgelab_auto_backup')==='yes'}catch{}
+$('auto-backup-check').addEventListener('change',()=>{
+ try{localStorage.setItem('bridgelab_auto_backup',$('auto-backup-check').checked?'yes':'no')}catch{}
+});
+globalThis.addEventListener('bridgelab-stats-saved',()=>{updateStorageStatus().catch(()=>{});});
+await updateStorageStatus();

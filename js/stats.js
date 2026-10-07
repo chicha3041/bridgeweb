@@ -152,9 +152,12 @@ export function loadStats() {
   saveStats(s);
   return s;
 }
-export function saveStats(stats) { localStorage.setItem(KEY, JSON.stringify(stats)); }
+export function saveStats(stats) {
+  localStorage.setItem(KEY, JSON.stringify(stats));
+  if(typeof globalThis.dispatchEvent==='function' && typeof CustomEvent==='function')globalThis.dispatchEvent(new CustomEvent('bridgelab-stats-saved',{detail:structuredClone(stats)}));
+}
 export function clearStats(key) {
-  if (!key) { localStorage.removeItem(KEY); return; }
+  if (!key) { saveStats(empty()); return; }
   const s = loadStats();
   for (const [id, p] of Object.entries(s.partidos))
     if ((p.eventoClave || eventKey(p.evento)) === key) delete s.partidos[id];

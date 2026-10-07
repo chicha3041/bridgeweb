@@ -10,8 +10,8 @@ export async function exportToPdf(analyzer, stats, selectedEvent = "", selectedT
   const { teams } = calcularEstadisticasEquipos(scope);
   const ids = Object.keys(teams).sort((a, b) => teams[a].nombre.localeCompare(teams[b].nombre, "es"));
   if (!ids.length) throw new Error("No hay estadísticas para el equipo y evento seleccionados.");
-  const firma = await matchKey(analyzer);
-  const current = Object.values(scope.partidos).find(p => p.firma === firma);
+  const firma = analyzer ? await matchKey(analyzer) : null;
+  const current = Object.values(scope.partidos).find(p => firma && p.firma === firma);
   const event = selectedEvent ? new Map(eventOptions(stats)).get(selectedEvent) || selectedEvent : "Global - todos los eventos";
   const doc = new globalThis.jspdf.jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const margin = 12;
@@ -26,15 +26,15 @@ export async function exportToPdf(analyzer, stats, selectedEvent = "", selectedT
     doc.text(title, margin, 18);
     let y = 18 + title.length * 8;
     doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(...gray);
-    const subtitle = doc.splitTextToSize("Partido: " + (analyzer.matchEvent || "Sin evento") +
-      " | Fecha: " + (analyzer.matchDate || "No indicada") + " | " + (analyzer.singleTable ? "Mesa única contra par" : "Dos salas"), 270);
+    const subtitle = doc.splitTextToSize((analyzer ? "Partido: " + (analyzer.matchEvent || "Sin evento") +
+      " | Fecha: " + (analyzer.matchDate || "No indicada") + " | " + (analyzer.singleTable ? "Mesa única contra par" : "Dos salas") : "Histórico acumulado | Sin partido analizado en esta sesión"), 270);
     doc.text(subtitle, margin, y); y += subtitle.length * 5 + 3;
     const netImps = Object.values(t.jugadores).reduce((sum, j) => sum + j.imps, 0);
     const currentImps = [...played].reduce((sum, name) => sum + (current?.jugadores[name]?.imps || 0), 0);
     const scopeLine = doc.splitTextToSize("Acumulado: " + event + " | " + t.partidos + " partido(s), " + t.manos + " manos, " + num(netImps) + " IMPs netos", 270);
     doc.text(scopeLine, margin, y); y += scopeLine.length * 5 + 1;
     doc.text(side ? "Este partido: " + (current.manos || 0) + " manos | " + num(currentImps) + " IMPs netos" :
-      "Este equipo no participa en el partido actual dentro del ámbito seleccionado.", margin, y); y += 8;
+      (analyzer ? "Este equipo no participa en el partido actual dentro del ámbito seleccionado." : "Solo acumulado: analiza los PBN si quieres añadir las columnas del partido actual."), margin, y); y += 8;
     const rows = filasJugadoresEquipo(t).map(f => {
       const j = played.has(f.name) ? current.jugadores[f.name] : null;
       return [f.name, ...(j ? [j.manos, num(j.imps), num(j.manos ? j.imps / j.manos : 0), num(j.subasta), num(j.carteo)] : ["-", "-", "-", "-", "-"]),
@@ -70,7 +70,7 @@ export async function exportToPdf(analyzer, stats, selectedEvent = "", selectedT
   const pages = doc.getNumberOfPages();
   for (let page = 1; page <= pages; page++) {
     doc.setPage(page).setFontSize(8).setTextColor(...gray);
-    doc.text("BridgeLab v7.5 | Histórico de este navegador", margin, 202);
+    doc.text("BridgeLab v7.8 | Histórico de este navegador", margin, 202);
     doc.text(page + " / " + pages, 284, 202, {align:"right"});
   }
   doc.save("bridgelab-partido-y-acumulado.pdf");

@@ -94,3 +94,10 @@ ul.best { margin: .3rem 0 1rem; }
 .team-inputs { border: 1px solid #cfd4da; border-radius: 6px; margin: .8rem 0; padding: .6rem .8rem; }
 .team-inputs label { display: inline-flex; flex-direction: column; gap: .25rem; margin: .3rem 1rem .3rem 0; font-size: .9rem; }
 .team-inputs input { padding: .5rem; border: 1px solid #9ca9b8; border-radius: 4px; font: inherit; width: min(24rem, 100%); }
+
+/* Copia de seguridad v7.7 */
+.history-backup { border: 1px solid #cfd4da; border-radius: 6px; margin: 1rem 0; padding: .7rem .9rem; }
+.backup-actions { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.backup-actions label { display: flex; flex-direction: column; gap: .25rem; font-size: .9rem; max-width: 100%; }
+.backup-actions input { max-width: 100%; }
+#backup-status { margin: .4rem 0 0; color: #444; font-size: .9rem; }
