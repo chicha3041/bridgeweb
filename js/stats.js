@@ -198,6 +198,37 @@ function asignarEquipo(stats, roster, eventoClave, excluidos = new Set(), nombre
   stats.equipos[id] = { nombre: nombre || "Equipo " + id.slice(2), jugadores: [] };
   return id;
 }
+
+// Sin nombre tecleado ni etiquetas TeamNS/TeamEW (caso Bridgedom), reconoce el
+// equipo por su plantilla en TODO el histórico: el nombre es lo único que agrupa
+// los partidos de un equipo entre eventos en la vista Global. Exige al menos 2
+// jugadores conocidos y que no haya empate entre nombres; en caso de duda, no
+// pone nombre y el equipo queda como "Equipo N" (editable con el lápiz).
+function nombrePorPlantilla(stats, roster, excluirIds = new Set()) {
+  const nombresExcluidos = new Set();
+  for (const id of excluirIds) {
+    const key = teamKey(stats.equipos[id]?.nombre);
+    if (key) nombresExcluidos.add(key);
+  }
+  const porNombre = new Map();
+  for (const [id, eq] of Object.entries(stats.equipos)) {
+    if (excluirIds.has(id)) continue;
+    const nombre = String(eq.nombre || "").trim();
+    if (!nombre || /^Equipo \d+$/.test(nombre)) continue;
+    const key = teamKey(nombre);
+    if (nombresExcluidos.has(key)) continue;
+    if (!porNombre.has(key)) porNombre.set(key, { nombre, jugadores: new Set() });
+    for (const j of eq.jugadores || []) porNombre.get(key).jugadores.add(j);
+  }
+  let best = "", bestOv = 1, empate = false;
+  for (const { nombre, jugadores } of porNombre.values()) {
+    const ov = roster.filter(n => jugadores.has(n)).length;
+    if (ov > bestOv) { best = nombre; bestOv = ov; empate = false; }
+    else if (ov === bestOv && best) empate = true;
+  }
+  return empate ? "" : best;
+}
+
 export async function registrarEstadisticas(analyzer) {
   const stats = loadStats();
   const eventoClave = (analyzer.singleTable ? "mesa-unica:" : "") + eventKey(analyzer.matchEvent);
@@ -234,10 +265,18 @@ export async function registrarEstadisticas(analyzer) {
     const roster = [...analyzer.teamsRoster[tn]].filter(n => n && !analyzer.anonymousPlayers?.has(n)).sort();
     if (!roster.length) continue;
     const nombre = analyzer.teamNames?.[tn]?.trim() || "";
+    const excluidos = new Set(Object.values(equiposPartido).map(side => side.id));
     const id = previous?.eventoClave === eventoClave && previous.equipos?.[lado]?.id ||
-      asignarEquipo(stats, roster, eventoClave, new Set(Object.values(equiposPartido).map(side => side.id)), nombre);
+      asignarEquipo(stats, roster, eventoClave, excluidos, nombre);
     const eq = stats.equipos[id] || (stats.equipos[id] = { nombre: `Equipo ${id.slice(2)}`, jugadores: [] });
     if (nombre) eq.nombre = nombre;
+    // Renombra equipos sin nombre real (nuevos o guardados como "Equipo N") cuando
+    // la plantilla los reconoce. Así un partido ya registrado sin nombres se corrige
+    // solo al volver a analizarlo. Mesa única (parejas) queda fuera: roster < 3.
+    if (!nombre && roster.length >= 3 && /^Equipo \d+$/.test(eq.nombre || "")) {
+      const auto = nombrePorPlantilla(stats, roster, new Set([...excluidos, id]));
+      if (auto) eq.nombre = auto;
+    }
     eq.jugadores = [...new Set([...(eq.jugadores || []), ...roster])].sort();
     equiposPartido[lado] = { id, jugadores: roster, imps: analyzer.matchGrossGain[tn] || 0 };
   }
