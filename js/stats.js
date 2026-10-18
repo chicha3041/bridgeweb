@@ -261,14 +261,35 @@ export async function registrarEstadisticas(analyzer) {
   // Reutilizar los equipos del partido si ya existía, sin cambiar identidades al repetirlo.
   const previous = stats.partidos[replaceKey];
   const equiposPartido = {};
+  // Al volver a analizar, el lado A/B depende de en qué sala se suba cada fichero
+  // (Abierta/Cerrada). Si se suben al revés, los lados quedan intercambiados: se
+  // reutilizan las identidades guardadas según los jugadores, no según la letra.
+  const rosterDe = tn => [...analyzer.teamsRoster[tn]].filter(n => n && !analyzer.anonymousPlayers?.has(n));
+  let prevId = { A: previous?.equipos?.A?.id, B: previous?.equipos?.B?.id };
+  if (previous?.eventoClave === eventoClave && prevId.A && prevId.B) {
+    const ov = (tn, lado) => rosterDe(tn).filter(n => (previous.equipos[lado].jugadores || []).includes(n)).length;
+    if (ov("Equipo A", "B") + ov("Equipo B", "A") > ov("Equipo A", "A") + ov("Equipo B", "B"))
+      prevId = { A: prevId.B, B: prevId.A };
+  }
+  const otrosJugadores = id => new Set(Object.entries(stats.partidos).filter(([k]) => k !== replaceKey)
+    .flatMap(([, p]) => Object.values(p.equipos || {}).filter(e => e.id === id).flatMap(e => e.jugadores || [])));
   for (const [lado, tn] of [["A", "Equipo A"], ["B", "Equipo B"]]) {
     const roster = [...analyzer.teamsRoster[tn]].filter(n => n && !analyzer.anonymousPlayers?.has(n)).sort();
     if (!roster.length) continue;
     const nombre = analyzer.teamNames?.[tn]?.trim() || "";
     const excluidos = new Set(Object.values(equiposPartido).map(side => side.id));
-    const id = previous?.eventoClave === eventoClave && previous.equipos?.[lado]?.id ||
+    const id = previous?.eventoClave === eventoClave && prevId[lado] ||
       asignarEquipo(stats, roster, eventoClave, excluidos, nombre);
     const eq = stats.equipos[id] || (stats.equipos[id] = { nombre: `Equipo ${id.slice(2)}`, jugadores: [] });
+    // Autorreparación: un equipo guardado con jugadores del rival (v7.9 con salas invertidas)
+    // se reinicia si solo lo usa este partido; después se renombra por plantilla.
+    if (!nombre && prevId[lado] === id) {
+      const rival = rosterDe(tn === "Equipo A" ? "Equipo B" : "Equipo A");
+      const otros = otrosJugadores(id);
+      if (rival.some(n => (eq.jugadores || []).includes(n)) && !rival.some(n => otros.has(n))) {
+        eq.nombre = `Equipo ${id.slice(2)}`; eq.jugadores = [];
+      }
+    }
     if (nombre) eq.nombre = nombre;
     // Renombra equipos sin nombre real (nuevos o guardados como "Equipo N") cuando
     // la plantilla los reconoce. Así un partido ya registrado sin nombres se corrige
@@ -277,7 +298,9 @@ export async function registrarEstadisticas(analyzer) {
       const auto = nombrePorPlantilla(stats, roster, new Set([...excluidos, id]));
       if (auto) eq.nombre = auto;
     }
-    eq.jugadores = [...new Set([...(eq.jugadores || []), ...roster])].sort();
+    // Con equipo reutilizado, la plantilla se reconstruye con los otros partidos de ese id
+    // (así un reanálisis no arrastra jugadores del rival).
+    eq.jugadores = [...new Set([...(previous?.eventoClave === eventoClave && prevId[lado] ? otrosJugadores(id) : eq.jugadores || []), ...roster])].sort();
     equiposPartido[lado] = { id, jugadores: roster, imps: analyzer.matchGrossGain[tn] || 0 };
   }
   const now = new Date(), pad = n => String(n).padStart(2, "0");

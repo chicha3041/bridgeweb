@@ -1,0 +1,3 @@
+BridgeLab v7.10 - correccion de equipos al reanalizar
+Sube/reemplaza estos ficheros en el repo: js/stats.js, index.html, js/export-pdf.js. Pulsa COMMIT, espera 1-2 min y recarga con Ctrl+F5.
+Cambio: al reanalizar un partido ya guardado, los equipos se reconocen por jugadores aunque las salas se suban al reves, y un equipo contaminado con jugadores del rival se repara solo.
