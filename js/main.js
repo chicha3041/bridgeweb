@@ -1,6 +1,6 @@
 import { BridgeAnalyzer } from "./analyzer.js";
 import { DdsClient } from "./dds-client.js";
-import { loadStats, clearStats, registrarEstadisticas, eventKey, eventOptions, teamOptions, resolveTeamSelection, filterSelection } from "./stats.js";
+import { loadStats, clearStats, listMatches, deleteMatch, registrarEstadisticas, eventKey, eventOptions, teamOptions, resolveTeamSelection, filterSelection } from "./stats.js";
 import { renderReport, renderStats } from "./report.js";
 import { exportToPdf } from "./export-pdf.js";
 import { exportToExcel } from "./export-xlsx.js";
@@ -13,6 +13,27 @@ const $ = (id) => document.getElementById(id);
 let lastAnalyzer = null;
 let selectedEvent = "";
 let selectedTeam = "";
+function renderMatchList(stats) {
+  const box = $("match-list");
+  box.replaceChildren();
+  const items = listMatches(stats);
+  if (!items.length) { box.textContent = "No hay partidos guardados."; return; }
+  for (const it of items) {
+    const row = document.createElement("div");
+    row.className = "small";
+    const txt = document.createElement("span");
+    txt.textContent = `${it.fecha} · ${it.evento} (${it.procesado}) — ${it.equipos.join(" | ")} `;
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "secondary"; btn.textContent = "Borrar este partido";
+    btn.addEventListener("click", () => {
+      if (confirm(`¿Borrar solo este partido («${it.evento}», ${it.fecha})?`)) {
+        deleteMatch(it.id); refreshSelector(selectedEvent);
+        setStatus("Partido borrado del histórico.");
+      }
+    });
+    row.append(txt, btn); box.append(row);
+  }
+}
 function refreshSelector(preferred, preferredTeam = selectedTeam) {
   const stats = loadStats();
   const selector = $("event-filter");
@@ -28,6 +49,7 @@ function refreshSelector(preferred, preferredTeam = selectedTeam) {
   teamSelector.value = resolveTeamSelection(stats, selectedEvent, preferredTeam);
   selectedTeam = teamSelector.value;
   teamSelector.disabled = !teams.length;
+  renderMatchList(stats);
   $("clear-event-btn").disabled = !selectedEvent;
   $("pdf-btn").disabled = !selectedTeam;
   const scope = filterSelection(stats, selectedEvent, selectedTeam);

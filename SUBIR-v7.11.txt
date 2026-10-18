@@ -1,0 +1,3 @@
+BridgeLab v7.11 - reparar equipos contaminados y borrar un partido
+Sube/reemplaza: js/stats.js, js/main.js, index.html, js/export-pdf.js. COMMIT, espera 1-2 min, Ctrl+F5 (el pie debe decir v7.11).
+Cambios: (1) al reanalizar, ya no se reutilizan los equipos guardados del partido (contaminados por v7.9/v7.10): se reconstruye todo con los demas partidos. (2) Nueva seccion "Partidos guardados" con boton "Borrar este partido" para cada uno. (3) "Borrar evento" solo se activa con un evento elegido en el selector (en Global esta desactivado).

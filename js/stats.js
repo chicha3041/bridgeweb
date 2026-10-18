@@ -258,49 +258,42 @@ export async function registrarEstadisticas(analyzer) {
       (p.archivos || []).slice().sort().join("|") === files && p.manos === analyzer.activeBoards.size);
     if (old) replaceKey = old[0];
   }
-  // Reutilizar los equipos del partido si ya existía, sin cambiar identidades al repetirlo.
+  // v7.11: un reanálisis NO reutiliza los equipos guardados del propio partido (pueden
+  // venir contaminados por v7.9). Se quita el partido anterior, se reconstruyen las
+  // plantillas con los demás partidos y se asigna como un análisis nuevo.
   const previous = stats.partidos[replaceKey];
   const equiposPartido = {};
-  // Al volver a analizar, el lado A/B depende de en qué sala se suba cada fichero
-  // (Abierta/Cerrada). Si se suben al revés, los lados quedan intercambiados: se
-  // reutilizan las identidades guardadas según los jugadores, no según la letra.
   const rosterDe = tn => [...analyzer.teamsRoster[tn]].filter(n => n && !analyzer.anonymousPlayers?.has(n));
-  let prevId = { A: previous?.equipos?.A?.id, B: previous?.equipos?.B?.id };
-  if (previous?.eventoClave === eventoClave && prevId.A && prevId.B) {
-    const ov = (tn, lado) => rosterDe(tn).filter(n => (previous.equipos[lado].jugadores || []).includes(n)).length;
-    if (ov("Equipo A", "B") + ov("Equipo B", "A") > ov("Equipo A", "A") + ov("Equipo B", "B"))
-      prevId = { A: prevId.B, B: prevId.A };
+  const carryName = {};
+  if (previous) {
+    const otros = Object.entries(stats.partidos).filter(([k]) => k !== replaceKey);
+    const idsOtros = new Set(otros.flatMap(([, p]) => Object.values(p.equipos || {}).map(e => e.id)));
+    for (const lado of ["A", "B"]) {
+      const side = previous.equipos?.[lado];
+      const nm = side && stats.equipos[side.id]?.nombre;
+      if (!nm || /^Equipo \d+$/.test(nm) || idsOtros.has(side.id)) continue;
+      const ov = tn => rosterDe(tn).filter(n => (side.jugadores || []).includes(n)).length;
+      const [oa, ob] = [ov("Equipo A"), ov("Equipo B")];
+      const tn = oa >= ob ? "Equipo A" : "Equipo B";
+      if (Math.max(oa, ob) >= 2 && oa !== ob) carryName[tn] = nm;
+    }
+    delete stats.partidos[replaceKey];
+    rebuildTeams(stats);
   }
-  const otrosJugadores = id => new Set(Object.entries(stats.partidos).filter(([k]) => k !== replaceKey)
-    .flatMap(([, p]) => Object.values(p.equipos || {}).filter(e => e.id === id).flatMap(e => e.jugadores || [])));
   for (const [lado, tn] of [["A", "Equipo A"], ["B", "Equipo B"]]) {
-    const roster = [...analyzer.teamsRoster[tn]].filter(n => n && !analyzer.anonymousPlayers?.has(n)).sort();
+    const roster = rosterDe(tn).sort();
     if (!roster.length) continue;
     const nombre = analyzer.teamNames?.[tn]?.trim() || "";
     const excluidos = new Set(Object.values(equiposPartido).map(side => side.id));
-    const id = previous?.eventoClave === eventoClave && prevId[lado] ||
-      asignarEquipo(stats, roster, eventoClave, excluidos, nombre);
-    const eq = stats.equipos[id] || (stats.equipos[id] = { nombre: `Equipo ${id.slice(2)}`, jugadores: [] });
-    // Autorreparación: un equipo guardado con jugadores del rival (v7.9 con salas invertidas)
-    // se reinicia si solo lo usa este partido; después se renombra por plantilla.
-    if (!nombre && prevId[lado] === id) {
-      const rival = rosterDe(tn === "Equipo A" ? "Equipo B" : "Equipo A");
-      const otros = otrosJugadores(id);
-      if (rival.some(n => (eq.jugadores || []).includes(n)) && !rival.some(n => otros.has(n))) {
-        eq.nombre = `Equipo ${id.slice(2)}`; eq.jugadores = [];
-      }
-    }
+    const id = asignarEquipo(stats, roster, eventoClave, excluidos, nombre);
+    const eq = stats.equipos[id];
     if (nombre) eq.nombre = nombre;
-    // Renombra equipos sin nombre real (nuevos o guardados como "Equipo N") cuando
-    // la plantilla los reconoce. Así un partido ya registrado sin nombres se corrige
-    // solo al volver a analizarlo. Mesa única (parejas) queda fuera: roster < 3.
+    else if (carryName[tn] && /^Equipo \d+$/.test(eq.nombre || "")) eq.nombre = carryName[tn];
     if (!nombre && roster.length >= 3 && /^Equipo \d+$/.test(eq.nombre || "")) {
       const auto = nombrePorPlantilla(stats, roster, new Set([...excluidos, id]));
       if (auto) eq.nombre = auto;
     }
-    // Con equipo reutilizado, la plantilla se reconstruye con los otros partidos de ese id
-    // (así un reanálisis no arrastra jugadores del rival).
-    eq.jugadores = [...new Set([...(previous?.eventoClave === eventoClave && prevId[lado] ? otrosJugadores(id) : eq.jugadores || []), ...roster])].sort();
+    eq.jugadores = [...new Set([...(eq.jugadores || []), ...roster])].sort();
     equiposPartido[lado] = { id, jugadores: roster, imps: analyzer.matchGrossGain[tn] || 0 };
   }
   const now = new Date(), pad = n => String(n).padStart(2, "0");
@@ -315,4 +308,31 @@ export async function registrarEstadisticas(analyzer) {
   };
   saveStats(stats);
   return stats;
+}
+
+// Reconstruye la plantilla de cada equipo con los partidos que quedan y borra equipos sin partidos.
+function rebuildTeams(stats) {
+  const jug = {};
+  for (const p of Object.values(stats.partidos))
+    for (const e of Object.values(p.equipos || {})) if (e?.id)
+      jug[e.id] = [...new Set([...(jug[e.id] || []), ...(e.jugadores || [])])].sort();
+  for (const id of Object.keys(stats.equipos)) {
+    if (!jug[id]) delete stats.equipos[id]; else stats.equipos[id].jugadores = jug[id];
+  }
+}
+export function listMatches(stats) {
+  return Object.entries(stats.partidos || {}).map(([id, p]) => ({
+    id, fecha: p.fecha || "", evento: p.evento || "", procesado: p.procesado || "",
+    equipos: ["A", "B"].map(l => p.equipos?.[l]).filter(Boolean)
+      .map(e => `${stats.equipos?.[e.id]?.nombre || e.id}: ${(e.jugadores || []).join(", ")}`),
+  })).sort((a, b) => (b.procesado || "").localeCompare(a.procesado || ""));
+}
+// Borra un solo partido y recompone las plantillas de equipo con los demás.
+export function deleteMatch(id) {
+  const s = loadStats();
+  if (!s.partidos[id]) return s;
+  delete s.partidos[id];
+  rebuildTeams(s);
+  saveStats(s);
+  return s;
 }
